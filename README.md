@@ -153,6 +153,30 @@ going through the check should send you back to the home page.
 - The session secret comes from the `SECRET_KEY` environment variable and falls back to a placeholder; the verifier and site addresses use `VERIFIER_URL` and `SITE_ORIGIN`. Change the secret before using
   this for anything beyond a local demo.
 
+## Using the age-check client in another project
+
+The age-check logic lives in `src/agecheck/` and has no dependency on Flask.
+
+```python
+from agecheck import AgeVerifier, VerifierError
+
+verifier = AgeVerifier("http://127.0.0.1:8000")
+
+started = verifier.start_session()
+# Give started["offer"] to the browser's navigator.credentials.get(...)
+# and keep started["session_id"] for the next step.
+
+verified, details = verifier.finish(started["session_id"], wallet_response)
+if verified:
+    ...  # the verifier confirmed age_over_18 is true
+```
+
+`verified` is true only when the verifier says `verified` **and** `age_over_18` is true.
+A verifier that cannot be reached raises `VerifierError`; treat that as "not verified".
+`verifier.health()` returns the verifier's health report.
+
+Install from a checkout with `pip install -e ".[dev]"`. This package talks to an
+experimental service and is not published to PyPI.
 ## Credits and licences
 
 Built on open-source work by others: Google's

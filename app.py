@@ -133,3 +133,15 @@ def members():
 def logout():
     session.pop("is_adult", None)
     return redirect(url_for("home"))
+
+
+@app.route("/health")
+def health():
+    try:
+        r = requests.get(VERIFIER + "/health", timeout=3)
+        r.raise_for_status()
+        info = r.json()
+    except (requests.RequestException, ValueError):
+        return "<h1>Verifier is down</h1><p>The age-check service is not reachable.</p>", 503
+    version = html.escape(str(info.get("zk_age_verifier", "unknown")))
+    return "<h1>Verifier is up</h1><p>Version: " + version + "</p>"

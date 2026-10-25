@@ -1,0 +1,18 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-cache-dir . flask
+
+COPY app.py ./
+
+RUN useradd --create-home appuser
+USER appuser
+
+ENV FLASK_APP=app.py
+EXPOSE 5000
+
+# Flask's built-in server: fine for a local demo, not for the public internet.
+CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000"]

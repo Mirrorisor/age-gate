@@ -1,0 +1,30 @@
+# Runs the verifier and the demo site together. Local use only.
+#
+# First time:
+#   1. Copy .env.example to .env and fill it in (see the comments there).
+#   2. Stop any verifier you started by hand:  docker stop zkv
+#   3. docker compose up --build
+# Then open http://localhost:5000 (use localhost, not 127.0.0.1).
+
+services:
+  verifier:
+    image: ghcr.io/pipe23-org/zk-age-verifier:latest
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ${VERIFIER_CONFIG_DIR:-./verifier-config}:/config:ro
+    environment:
+      ZK_AGE_VERIFIER_CONFIG: /config/config.toml
+
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile.site
+    depends_on:
+      - verifier
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      VERIFIER_URL: http://verifier:8000
+      SITE_ORIGIN: http://localhost:5000
+      SECRET_KEY: ${SECRET_KEY:?Create a .env file with SECRET_KEY (see .env.example)}

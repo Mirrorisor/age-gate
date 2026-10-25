@@ -23,7 +23,11 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Fake wallet (test script) producing an encrypted ZK proof, verified by the running verifier | Works: returns `verified`, `age_over_18: True` |
 | Real phone wallet producing a ZK proof | **Not working.** Multipaz Test App presents an ordinary (non-ZK) age proof fine, but fails instantly with "something went wrong" when ZK is requested. Cause unknown. |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
+<<<<<<< HEAD
 | Flask site accepting a successful check end to end: Works in demo mode (DEMO_FAKE_WALLET=1), using the fake wallet inside the verifier’s Docker container | Not yet tested with a real phone wallet. |
+=======
+| Flask site accepting a successful check end to end | **Works in demo mode** (`DEMO_FAKE_WALLET=1`): the site asks the verifier for a session, the fake wallet answers, and the site opens `/members` only on a `verified` verdict. Not tested with a real phone wallet. |
+>>>>>>> 97495d7 (Add demo mode: site verifies end to end via fake test wallet)
 
 ## How it fits together
 
@@ -112,6 +116,30 @@ docker exec -e PYTHONDONTWRITEBYTECODE=1 zkv /app/.venv/bin/python /tmp/work/wal
 ```
 
 Expected result: `verifier says: {'state': 'verified', 'result': {'age_over_18': True}, ...}`
+
+### 4. Demo mode: the whole site, with the fake wallet
+
+Demo mode lets you click through the real site flow without a phone. The site still
+asks the verifier for a session and acts only on the verifier's verdict; the only
+difference is that `scripts/wallet_present.py` (run inside the verifier's container
+through `docker exec`) answers the wallet request instead of a phone.
+
+Demo mode is **off by default** and must never be turned on for a public site, because
+it signs people in with a test credential. It is enabled only by an environment variable.
+
+With the verifier running (named `zkv`, as in step 2) and the test files copied in
+(step 3):
+
+```
+docker cp scripts\wallet_present.py zkv:/tmp/work/wallet_present.py
+venv\Scripts\activate
+$env:DEMO_FAKE_WALLET = "1"
+flask run
+```
+
+Open <http://localhost:5000/verify> and click **Demo mode: use the fake test wallet**.
+You should land on the members page. Opening `/members` in a private window without
+going through the check should send you back to the home page.
 
 ## Known problems and open questions
 

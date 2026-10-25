@@ -126,4 +126,10 @@ def demo_verify():
 def members():
     if not session.get("is_adult"):
         return redirect(url_for("home"))
-    return "<h1>Members area</h1><p>You passed the age check.</p>"
+    return '<h1>Members area</h1><p>You passed the age check.</p><p><a href="/logout">Log out</a></p>'
+
+
+@app.route("/logout")
+def logout():
+    session.pop("is_adult", None)
+    return redirect(url_for("home"))

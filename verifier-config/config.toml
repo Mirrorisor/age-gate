@@ -1,0 +1,5 @@
+[service]
+expected_origin = "http://localhost:5000"
+
+[[trust.sources]]
+pem = "/config/certs"

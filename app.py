@@ -1,4 +1,4 @@
-﻿import html
+import html
 import json
 import os
 import subprocess
@@ -6,6 +6,7 @@ import subprocess
 from flask import Flask, session, redirect, url_for, request, jsonify
 
 from agecheck import AgeVerifier, VerifierError
+from agecheck.reasons import explain
 
 VERIFIER = os.environ.get("VERIFIER_URL", "http://127.0.0.1:8000")
 SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "http://localhost:5000")
@@ -42,7 +43,7 @@ async function go() {
     });
     const out = await fin.json();
     if (out.ok) { location.href = '/members'; }
-    else { msg.textContent = 'Not verified: ' + JSON.stringify(out.detail); }
+    else { msg.textContent = out.message || ('Not verified: ' + JSON.stringify(out.detail)); }
   } catch (e) {
     msg.textContent = 'Error: ' + e.message;
   }
@@ -82,16 +83,27 @@ def api_start():
 def api_finish():
     sid = session.get("av_session")
     if not sid:
-        return jsonify({"ok": False, "detail": "no session"}), 400
+        return jsonify({
+            "ok": False,
+            "detail": "no session",
+            "message": "Your check expired. Reload the page and try again.",
+        }), 400
     body = request.get_json(silent=True) or {}
     try:
         ok, detail = verifier.finish(sid, body.get("response"))
     except VerifierError:
-        return jsonify({"ok": False, "detail": "verifier unavailable"}), 502
+        return jsonify({
+            "ok": False,
+            "detail": "verifier unavailable",
+            "message": "The age-check service is not reachable right now. Try again later.",
+        }), 502
     session.pop("av_session", None)
     if ok:
         session["is_adult"] = True
-    return jsonify({"ok": ok, "detail": detail})
+    payload = {"ok": ok, "detail": detail}
+    if not ok:
+        payload["message"] = explain(detail)
+    return jsonify(payload)
 
 
 @app.route("/demo-verify")
@@ -120,7 +132,10 @@ def demo_verify():
     if ok:
         session["is_adult"] = True
         return redirect(url_for("members"))
-    return "<h1>Not verified</h1><pre>" + html.escape(json.dumps(detail, indent=2)) + "</pre>", 403
+    return (
+        "<h1>Not verified</h1><p>" + html.escape(explain(detail)) + "</p><pre>"
+        + html.escape(json.dumps(detail, indent=2)) + "</pre>"
+    ), 403
 
 
 @app.route("/members")

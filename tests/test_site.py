@@ -104,3 +104,76 @@ def test_verifier_url_comes_from_environment(monkeypatch):
     monkeypatch.delenv("VERIFIER_URL")
     importlib.reload(site)
     assert site.VERIFIER == "http://127.0.0.1:8000"
+
+
+# ---- Demo mode tests: the verifier and the fake wallet are both pretend here ----
+
+def fake_wallet_setup(monkeypatch, verdict, wallet_returncode=0, wallet_stderr=""):
+    """Turn demo mode on and replace the verifier and the docker call with fakes."""
+    import json
+    from types import SimpleNamespace
+
+    calls = {}
+
+    def fake_post(url, **kwargs):
+        if url.endswith("/sessions"):
+            return FakeResponse({"session_id": "s1", "transports": {"dc": {"digital": "offer"}}})
+        calls["presentation_body"] = kwargs.get("json")
+        return FakeResponse(verdict)
+
+    def fake_run(cmd, **kwargs):
+        calls["wallet_input"] = json.loads(kwargs["input"])
+        return SimpleNamespace(
+            returncode=wallet_returncode,
+            stdout=json.dumps({"response": "abc"}),
+            stderr=wallet_stderr,
+        )
+
+    monkeypatch.setattr(site, "DEMO", True)
+    monkeypatch.setattr(site.requests, "post", fake_post)
+    monkeypatch.setattr(site.subprocess, "run", fake_run)
+    return calls
+
+
+def test_demo_verified_grants_access(client, monkeypatch):
+    calls = fake_wallet_setup(monkeypatch, {"state": "verified", "result": {"age_over_18": True}})
+    r = client.get("/demo-verify")
+    assert r.status_code == 302
+    assert r.headers["Location"].endswith("/members")
+    assert client.get("/members").status_code == 200
+    # The wallet got the verifier's offer and this site's origin, and the
+    # wallet's answer went to the verifier untouched.
+    assert calls["wallet_input"]["request"] == {"digital": "offer"}
+    assert calls["wallet_input"]["origin"] == site.SITE_ORIGIN
+    assert calls["presentation_body"] == {"response": "abc"}
+
+
+def test_demo_failed_verdict_denies(client, monkeypatch):
+    fake_wallet_setup(monkeypatch, {"state": "failed", "reason": "untrusted-issuer"})
+    r = client.get("/demo-verify")
+    assert r.status_code == 403
+    assert b"untrusted-issuer" in r.data
+    assert client.get("/members").status_code == 302
+
+
+def test_demo_verified_but_not_over_18_denies(client, monkeypatch):
+    fake_wallet_setup(monkeypatch, {"state": "verified", "result": {"age_over_18": False}})
+    r = client.get("/demo-verify")
+    assert r.status_code == 403
+    assert client.get("/members").status_code == 302
+
+
+def test_demo_wallet_crash_shows_escaped_error(client, monkeypatch):
+    fake_wallet_setup(monkeypatch, {}, wallet_returncode=1, wallet_stderr="<b>boom</b>")
+    r = client.get("/demo-verify")
+    assert r.status_code == 500
+    assert b"Fake wallet failed" in r.data
+    assert b"&lt;b&gt;boom" in r.data
+    assert b"<b>boom</b>" not in r.data
+    assert client.get("/members").status_code == 302
+
+
+def test_demo_link_only_shown_when_demo_is_on(client, monkeypatch):
+    assert b"demo-verify" not in client.get("/verify").data
+    monkeypatch.setattr(site, "DEMO", True)
+    assert b"demo-verify" in client.get("/verify").data

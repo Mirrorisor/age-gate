@@ -3,8 +3,9 @@ import json
 import os
 import subprocess
 
-import requests
 from flask import Flask, session, redirect, url_for, request, jsonify
+
+from agecheck import AgeVerifier, VerifierError
 
 VERIFIER = os.environ.get("VERIFIER_URL", "http://127.0.0.1:8000")
 SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "http://localhost:5000")
@@ -13,6 +14,7 @@ DEMO = os.environ.get("DEMO_FAKE_WALLET") == "1"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-later")
+verifier = AgeVerifier(VERIFIER)
 
 PAGE = """
 <h1>Verify your age</h1>
@@ -49,10 +51,6 @@ async function go() {
 """
 
 
-def is_verified(result):
-    return result.get("state") == "verified" and result.get("result", {}).get("age_over_18") is True
-
-
 @app.route("/")
 def home():
     return """
@@ -72,11 +70,12 @@ def verify():
 
 @app.route("/api/start", methods=["POST"])
 def api_start():
-    r = requests.post(VERIFIER + "/sessions", json={"checks": ["age_over_18"]}, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    session["av_session"] = data["session_id"]
-    return jsonify(data["transports"]["dc"])
+    try:
+        started = verifier.start_session()
+    except VerifierError:
+        return jsonify({"error": "verifier unavailable"}), 502
+    session["av_session"] = started["session_id"]
+    return jsonify(started["offer"])
 
 
 @app.route("/api/finish", methods=["POST"])
@@ -85,14 +84,14 @@ def api_finish():
     if not sid:
         return jsonify({"ok": False, "detail": "no session"}), 400
     body = request.get_json(silent=True) or {}
-    r = requests.post(VERIFIER + "/sessions/" + sid + "/presentation",
-                      json={"response": body.get("response")}, timeout=30)
-    result = r.json()
-    ok = is_verified(result)
+    try:
+        ok, detail = verifier.finish(sid, body.get("response"))
+    except VerifierError:
+        return jsonify({"ok": False, "detail": "verifier unavailable"}), 502
+    session.pop("av_session", None)
     if ok:
         session["is_adult"] = True
-    session.pop("av_session", None)
-    return jsonify({"ok": ok, "detail": result})
+    return jsonify({"ok": ok, "detail": detail})
 
 
 @app.route("/demo-verify")
@@ -100,11 +99,12 @@ def demo_verify():
     if not DEMO:
         return "Demo mode is off.", 404
     # 1. Ask the verifier for a session, like a real site would.
-    r = requests.post(VERIFIER + "/sessions", json={"checks": ["age_over_18"]}, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    # 2. The fake wallet (running inside the verifier's container) answers the request.
-    job = json.dumps({"request": data["transports"]["dc"], "origin": SITE_ORIGIN})
+    try:
+        started = verifier.start_session()
+    except VerifierError:
+        return "<h1>Verifier unavailable</h1>", 502
+    # 2. The fake wallet (running inside the verifier's container) answers.
+    job = json.dumps({"request": started["offer"], "origin": SITE_ORIGIN})
     p = subprocess.run(
         ["docker", "exec", "-i", "zkv", "/app/.venv/bin/python", "/tmp/work/wallet_present.py"],
         input=job, capture_output=True, text=True, encoding="utf-8", timeout=120,
@@ -113,13 +113,14 @@ def demo_verify():
         return "<h1>Fake wallet failed</h1><pre>" + html.escape(p.stderr[-3000:]) + "</pre>", 500
     wallet = json.loads(p.stdout)
     # 3. Send the answer to the verifier and act only on its verdict.
-    fin = requests.post(VERIFIER + "/sessions/" + data["session_id"] + "/presentation",
-                        json={"response": wallet["response"]}, timeout=30)
-    result = fin.json()
-    if is_verified(result):
+    try:
+        ok, detail = verifier.finish(started["session_id"], wallet["response"])
+    except VerifierError:
+        return "<h1>Verifier unavailable</h1>", 502
+    if ok:
         session["is_adult"] = True
         return redirect(url_for("members"))
-    return "<h1>Not verified</h1><pre>" + html.escape(json.dumps(result, indent=2)) + "</pre>", 403
+    return "<h1>Not verified</h1><pre>" + html.escape(json.dumps(detail, indent=2)) + "</pre>", 403
 
 
 @app.route("/members")
@@ -138,10 +139,8 @@ def logout():
 @app.route("/health")
 def health():
     try:
-        r = requests.get(VERIFIER + "/health", timeout=3)
-        r.raise_for_status()
-        info = r.json()
-    except (requests.RequestException, ValueError):
+        info = verifier.health()
+    except VerifierError:
         return "<h1>Verifier is down</h1><p>The age-check service is not reachable.</p>", 503
     version = html.escape(str(info.get("zk_age_verifier", "unknown")))
     return "<h1>Verifier is up</h1><p>Version: " + version + "</p>"

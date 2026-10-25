@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 # Make sure demo mode is off for the tests, whatever your shell has set.
 os.environ.pop("DEMO_FAKE_WALLET", None)
@@ -6,6 +6,7 @@ os.environ.pop("DEMO_FAKE_WALLET", None)
 import pytest
 import requests
 
+import agecheck
 import app as site
 
 
@@ -64,7 +65,7 @@ def test_health_reports_verifier_down(client, monkeypatch):
     def refuse(*args, **kwargs):
         raise requests.ConnectionError("no verifier")
 
-    monkeypatch.setattr(site.requests, "get", refuse)
+    monkeypatch.setattr(agecheck.requests, "get", refuse)
     r = client.get("/health")
     assert r.status_code == 503
     assert b"down" in r.data
@@ -74,7 +75,7 @@ def test_failed_verdict_does_not_grant_access(client, monkeypatch):
     with client.session_transaction() as s:
         s["av_session"] = "abc"
     monkeypatch.setattr(
-        site.requests, "post",
+        agecheck.requests, "post",
         lambda *a, **k: FakeResponse({"state": "failed", "reason": "proof-invalid"}),
     )
     r = client.post("/api/finish", json={"response": "x"})
@@ -86,7 +87,7 @@ def test_verified_verdict_grants_access(client, monkeypatch):
     with client.session_transaction() as s:
         s["av_session"] = "abc"
     monkeypatch.setattr(
-        site.requests, "post",
+        agecheck.requests, "post",
         lambda *a, **k: FakeResponse({"state": "verified", "result": {"age_over_18": True}}),
     )
     r = client.post("/api/finish", json={"response": "x"})
@@ -130,7 +131,7 @@ def fake_wallet_setup(monkeypatch, verdict, wallet_returncode=0, wallet_stderr="
         )
 
     monkeypatch.setattr(site, "DEMO", True)
-    monkeypatch.setattr(site.requests, "post", fake_post)
+    monkeypatch.setattr(agecheck.requests, "post", fake_post)
     monkeypatch.setattr(site.subprocess, "run", fake_run)
     return calls
 

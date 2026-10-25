@@ -23,7 +23,7 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Fake wallet (test script) producing an encrypted ZK proof, verified by the running verifier | Works: returns `verified`, `age_over_18: True` |
 | Real phone wallet producing a ZK proof | **Not working.** Multipaz Test App presents an ordinary (non-ZK) age proof fine, but fails instantly with "something went wrong" when ZK is requested. Cause unknown. |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
-| Flask site accepting a successful check end to end | **Not connected yet.** The fake wallet runs inside Docker, the site runs on Windows. |
+| Flask site accepting a successful check end to end: Works in demo mode (DEMO_FAKE_WALLET=1), using the fake wallet inside the verifier’s Docker container. Not yet tested with a real phone wallet. |
 
 ## How it fits together
 

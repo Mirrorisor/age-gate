@@ -1,4 +1,4 @@
-﻿# age-gate: a zero-knowledge age check demo
+# age-gate: a zero-knowledge age check demo
 
 A small learning project: a Flask website that gates a page behind a
 zero-knowledge "over 18" check, using the experimental
@@ -21,13 +21,9 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Site asks the verifier for a session, Chrome shows the wallet QR prompt | Works |
 | Verifier running in Docker, trusting a test issuer | Works |
 | Fake wallet (test script) producing an encrypted ZK proof, verified by the running verifier | Works: returns `verified`, `age_over_18: True` |
-| Real phone wallet producing a ZK proof | **Not working.** Multipaz Test App presents an ordinary (non-ZK) age proof fine, but fails instantly with "something went wrong" when ZK is requested. Cause unknown. |
+| Real phone wallet producing a ZK proof | **Works** with the Multipaz Test App's **Age Verification** document, once the issuer's root certificate is in the verifier's `certs` folder (see "Using a real phone wallet"). Photo ID and mDL documents do not work (see known problems). |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
-<<<<<<< HEAD
-| Flask site accepting a successful check end to end: Works in demo mode (DEMO_FAKE_WALLET=1), using the fake wallet inside the verifierâ€™s Docker container | Not yet tested with a real phone wallet. |
-=======
-| Flask site accepting a successful check end to end | **Works in demo mode** (`DEMO_FAKE_WALLET=1`): the site asks the verifier for a session, the fake wallet answers, and the site opens `/members` only on a `verified` verdict. Not tested with a real phone wallet. |
->>>>>>> 97495d7 (Add demo mode: site verifies end to end via fake test wallet)
+| Flask site accepting a successful check end to end | **Works** with a real phone wallet and in demo mode (`DEMO_FAKE_WALLET=1`). The site opens `/members` only on a `verified` verdict. |
 
 ## How it fits together
 
@@ -141,42 +137,51 @@ Open <http://localhost:5000/verify> and click **Demo mode: use the fake test wal
 You should land on the members page. Opening `/members` in a private window without
 going through the check should send you back to the home page.
 
+## Using a real phone wallet (Android, Multipaz Test App)
+
+This is the path that worked end to end in testing. It uses Multipaz's **demo**
+certificates, so it is for local testing only.
+
+1. Install the Multipaz Test App on an Android phone.
+2. Add an **Age Verification** document (document type `eu.europa.ec.av.1`).
+   The verifier only accepts this type. Photo ID and mDL documents are rejected
+   or fail on the phone.
+3. Put the root certificate that signed your document into
+   `verifier-config\certs\` and restart the verifier. For documents issued by the
+   Test App's online issuer this was a certificate named `Multipaz TEST IACA`.
+   Documents created offline inside the app use a private root that cannot be
+   exported, so they cannot be trusted by this verifier.
+4. Open <http://localhost:5000/verify> in Chrome, start the check, scan the QR
+   code with the Test App, choose the Age Verification document and approve it.
+
+### If you see `untrusted-issuer`
+
+The verifier accepts a document-signer certificate only if it exactly matches a
+trusted certificate, or was signed directly by one that is allowed to sign
+certificates (`keyCertSign`). To see which certificate your wallet presented, copy
+`core/trustlist.py` out of the container, add a few `print` lines to
+`AnchorSet.resolve` that show the presented certificate's issuer and the loaded
+anchors, and run the container with that file mounted over the original. The
+issuer name tells you which root certificate to add. Nothing in this repository
+depends on that change.
+
 ## Known problems and open questions
 
-- **Phone ZK presentation fails** in the Multipaz Test App (see table above).
-  Non-ZK presentation of the same credential works at tools.multipaz.org.
-- **Issuer trust:** the sample credential's issuer ("OWF Multipaz TEST IACA")
-  certificate was not located, so a phone-made proof could not have been trusted
-  by this verifier anyway.
+- **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit
+  only fits a document whose signed data is small. In testing, a signed data block
+  of about 2,500 bytes proved fine and about 2,560 bytes failed, so documents with a
+  portrait or many fields are probably too large. The Age Verification document is
+  small enough.
+- **Wrong document type:** the verifier asks for `eu.europa.ec.av.1`. Other types
+  give `claim-mismatch`.
+- **Issuer trust is manual.** You must supply the right root certificate yourself.
+  Only trust issuers you intend to trust, and never reuse the demo certificates on a
+  real site.
 - **Windows:** the verifier's compiled dependency has no Windows build, which is
   why it runs in Docker instead of `pip install`.
-- The session secret comes from the `SECRET_KEY` environment variable and falls back to a placeholder; the verifier and site addresses use `VERIFIER_URL` and `SITE_ORIGIN`. Change the secret before using
+- The Flask `secret_key` in `app.py` is a placeholder. Change it before using
   this for anything beyond a local demo.
 
-## Using the age-check client in another project
-
-The age-check logic lives in `src/agecheck/` and has no dependency on Flask.
-
-```python
-from agecheck import AgeVerifier, VerifierError
-
-verifier = AgeVerifier("http://127.0.0.1:8000")
-
-started = verifier.start_session()
-# Give started["offer"] to the browser's navigator.credentials.get(...)
-# and keep started["session_id"] for the next step.
-
-verified, details = verifier.finish(started["session_id"], wallet_response)
-if verified:
-    ...  # the verifier confirmed age_over_18 is true
-```
-
-`verified` is true only when the verifier says `verified` **and** `age_over_18` is true.
-A verifier that cannot be reached raises `VerifierError`; treat that as "not verified".
-`verifier.health()` returns the verifier's health report.
-
-Install from a checkout with `pip install -e ".[dev]"`. This package talks to an
-experimental service and is not published to PyPI.
 ## Credits and licences
 
 Built on open-source work by others: Google's

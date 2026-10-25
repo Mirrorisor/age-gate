@@ -1,4 +1,4 @@
-import html
+﻿import html
 import json
 import os
 import subprocess
@@ -6,13 +6,13 @@ import subprocess
 import requests
 from flask import Flask, session, redirect, url_for, request, jsonify
 
-VERIFIER = "http://127.0.0.1:8000"
-SITE_ORIGIN = "http://localhost:5000"
+VERIFIER = os.environ.get("VERIFIER_URL", "http://127.0.0.1:8000")
+SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "http://localhost:5000")
 # Demo mode uses a fake test wallet. Never enable it on a public site.
 DEMO = os.environ.get("DEMO_FAKE_WALLET") == "1"
 
 app = Flask(__name__)
-app.secret_key = "change-me-later"
+app.secret_key = os.environ.get("SECRET_KEY", "change-me-later")
 
 PAGE = """
 <h1>Verify your age</h1>

@@ -1,4 +1,4 @@
-# age-gate: a zero-knowledge age check demo
+﻿# age-gate: a zero-knowledge age check demo
 
 A small learning project: a Flask website that gates a page behind a
 zero-knowledge "over 18" check, using the experimental
@@ -24,7 +24,7 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Real phone wallet producing a ZK proof | **Not working.** Multipaz Test App presents an ordinary (non-ZK) age proof fine, but fails instantly with "something went wrong" when ZK is requested. Cause unknown. |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
 <<<<<<< HEAD
-| Flask site accepting a successful check end to end: Works in demo mode (DEMO_FAKE_WALLET=1), using the fake wallet inside the verifier’s Docker container | Not yet tested with a real phone wallet. |
+| Flask site accepting a successful check end to end: Works in demo mode (DEMO_FAKE_WALLET=1), using the fake wallet inside the verifierâ€™s Docker container | Not yet tested with a real phone wallet. |
 =======
 | Flask site accepting a successful check end to end | **Works in demo mode** (`DEMO_FAKE_WALLET=1`): the site asks the verifier for a session, the fake wallet answers, and the site opens `/members` only on a `verified` verdict. Not tested with a real phone wallet. |
 >>>>>>> 97495d7 (Add demo mode: site verifies end to end via fake test wallet)
@@ -150,7 +150,7 @@ going through the check should send you back to the home page.
   by this verifier anyway.
 - **Windows:** the verifier's compiled dependency has no Windows build, which is
   why it runs in Docker instead of `pip install`.
-- The Flask `secret_key` in `app.py` is a placeholder. Change it before using
+- The session secret comes from the `SECRET_KEY` environment variable and falls back to a placeholder; the verifier and site addresses use `VERIFIER_URL` and `SITE_ORIGIN`. Change the secret before using
   this for anything beyond a local demo.
 
 ## Credits and licences

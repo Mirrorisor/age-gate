@@ -92,3 +92,15 @@ def test_verified_verdict_grants_access(client, monkeypatch):
     r = client.post("/api/finish", json={"response": "x"})
     assert r.get_json()["ok"] is True
     assert client.get("/members").status_code == 200
+
+
+def test_verifier_url_comes_from_environment(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("VERIFIER_URL", "http://example.test:1234")
+    reloaded = importlib.reload(site)
+    assert reloaded.VERIFIER == "http://example.test:1234"
+
+    monkeypatch.delenv("VERIFIER_URL")
+    importlib.reload(site)
+    assert site.VERIFIER == "http://127.0.0.1:8000"

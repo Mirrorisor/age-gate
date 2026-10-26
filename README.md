@@ -165,6 +165,59 @@ anchors, and run the container with that file mounted over the original. The
 issuer name tells you which root certificate to add. Nothing in this repository
 depends on that change.
 
+## Two wallets, two issuers (tested)
+
+The same verifier accepted proofs from two unrelated wallet and issuer pairs, each
+with its own test root certificate:
+
+| Wallet | Credential came from | Root certificate the verifier needed |
+|---|---|---|
+| Multipaz Test App | Its online issuer (Age Verification document) | `Multipaz TEST IACA` |
+| EU Age Verification reference app | The EU demo issuer's test kiosk | `Age Verification Issuer CA 01` (a test certificate published in the EU issuer's repository, under `api_docs/test_tokens/IACA-token/`) |
+
+Both are demo roots. They belong in a local test setup only, never on a real site.
+
+## Run it with Docker Compose
+
+`docker compose up --build` starts the verifier and the site together.
+
+1. Copy `.env.example` to `.env` and fill in `SECRET_KEY` (any long random string,
+   for example from `python -c "import secrets; print(secrets.token_hex(32))"`) and
+   `VERIFIER_CONFIG_DIR` (the folder holding `config.toml` and `certs\`).
+2. Stop any verifier you started by hand (it uses port 8000).
+3. `docker compose up --build`, then open <http://localhost:5000/verify>.
+
+`.env` is ignored by git. Keep it that way. The site runs on Flask's built-in
+server, which is fine for a local demo and not for the public internet.
+
+## Checking your trusted certificates
+
+```
+python scripts\trustlist.py verifier-config\certs
+```
+
+lists every certificate the verifier will trust, with its name, dates, fingerprint
+and whether it can sign other certificates. It warns about expired, soon-to-expire
+and demo-looking certificates. It only reads files.
+
+## Finding the root certificate a wallet needs
+
+When a check ends with "This site does not trust the organisation that issued your
+credential" (`untrusted-issuer`), the verifier gives no detail. To see which
+certificate the wallet presented:
+
+1. Copy `core/trustlist.py` out of the verifier container.
+2. Add a few `print` lines at the start of `AnchorSet.resolve` that show the
+   presented certificate's subject, issuer and fingerprint.
+3. Start the container with that file mounted over the original, repeat the check,
+   and read the issuer name in the verifier's output.
+4. Find the issuer's published root certificate. Before trusting it, confirm that it
+   really signed the presented certificate (name match and signature check).
+   Then copy it into `certs\` and restart the verifier.
+
+The presented certificate is public data. Never trust a root you have not checked
+this way.
+
 ## Known problems and open questions
 
 - **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit
@@ -177,6 +230,14 @@ depends on that change.
 - **Issuer trust is manual.** You must supply the right root certificate yourself.
   Only trust issuers you intend to trust, and never reuse the demo certificates on a
   real site.
+- **Trust lists are not a safe shortcut.** The verifier's ETSI trust-list loader (as
+  of version 0.4.0) takes every certificate it finds in the file, including the
+  list's own signing certificates, and does not check the list's signature. The EU's
+  example list inspected during testing contained only signing certificates, so by the
+  loader's code, adding it would make those signers trust anchors (not tested
+  that way). Prefer individual root certificates that you checked by hand.
+- **`untrusted-issuer` carries no detail,** so finding the right root takes the
+  debugging steps above.
 - **Windows:** the verifier's compiled dependency has no Windows build, which is
   why it runs in Docker instead of `pip install`.
 - The Flask `secret_key` in `app.py` is a placeholder. Change it before using

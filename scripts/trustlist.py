@@ -36,26 +36,37 @@ class AnchorInfo:
     not_after: datetime | None = None
     is_ca: bool = False
     can_sign_certs: bool = False
+    extensions_unreadable: bool = False
     warnings: list[str] = field(default_factory=list)
     problem: bool = False
 
 
-def _can_sign_certs(cert: x509.Certificate) -> tuple[bool, bool]:
-    """Return (is_ca, key_cert_sign), treating unreadable extensions as absent."""
+def _can_sign_certs(cert: x509.Certificate) -> tuple[bool, bool, bool]:
+    """Return (is_ca, key_cert_sign, unreadable).
+
+    ``unreadable`` is True when the certificate's extensions cannot be parsed by
+    the cryptography library at all. Some real-world test PKI certificates are
+    like that, and the verifier has its own fallback reader for them, so
+    "unreadable here" is not the same as "cannot sign".
+    """
     try:
-        is_ca = cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca
-    except (x509.ExtensionNotFound, ValueError):
+        extensions = cert.extensions
+    except ValueError:
+        return False, False, True
+    try:
+        is_ca = extensions.get_extension_for_class(x509.BasicConstraints).value.ca
+    except x509.ExtensionNotFound:
         is_ca = False
     try:
-        key_cert_sign = cert.extensions.get_extension_for_class(x509.KeyUsage).value.key_cert_sign
-    except (x509.ExtensionNotFound, ValueError):
+        key_cert_sign = extensions.get_extension_for_class(x509.KeyUsage).value.key_cert_sign
+    except x509.ExtensionNotFound:
         key_cert_sign = False
-    return is_ca, key_cert_sign
+    return is_ca, key_cert_sign, False
 
 
 def describe(cert: x509.Certificate, file: str, now: datetime | None = None) -> AnchorInfo:
     now = now or datetime.now(timezone.utc)
-    is_ca, key_cert_sign = _can_sign_certs(cert)
+    is_ca, key_cert_sign, unreadable = _can_sign_certs(cert)
     info = AnchorInfo(
         file=file,
         subject=cert.subject.rfc4514_string() or "(empty subject)",
@@ -64,6 +75,7 @@ def describe(cert: x509.Certificate, file: str, now: datetime | None = None) -> 
         not_after=cert.not_valid_after_utc,
         is_ca=is_ca,
         can_sign_certs=is_ca and key_cert_sign,
+        extensions_unreadable=unreadable,
     )
     if now < info.not_before:
         info.warnings.append("not valid yet")
@@ -75,7 +87,13 @@ def describe(cert: x509.Certificate, file: str, now: datetime | None = None) -> 
         days_left = (info.not_after - now).days
         if days_left <= SOON_DAYS:
             info.warnings.append(f"expires in {days_left} days")
-    if not info.can_sign_certs:
+    if unreadable:
+        info.warnings.append(
+            "its extensions could not be parsed by this tool; the verifier has a "
+            "fallback reader for this, so it may still work (the only sure test is "
+            "to try it)"
+        )
+    elif not info.can_sign_certs:
         info.warnings.append(
             "cannot sign certificates: the verifier only accepts it if a wallet "
             "presents exactly this certificate"
@@ -124,7 +142,10 @@ def _fmt(info: AnchorInfo, now: datetime) -> str:
             f"  valid   : {info.not_before:%Y-%m-%d} to {info.not_after:%Y-%m-%d} ({left} days left)"
         )
         lines.append(f"  sha256  : {info.sha256}")
-        lines.append(f"  can sign certificates: {'yes' if info.can_sign_certs else 'no'}")
+        if info.extensions_unreadable:
+            lines.append("  can sign certificates: unknown (extensions unreadable here)")
+        else:
+            lines.append(f"  can sign certificates: {'yes' if info.can_sign_certs else 'no'}")
     for warning in info.warnings:
         lines.append(f"  WARNING : {warning}")
     return "\n".join(lines)

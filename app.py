@@ -1,12 +1,19 @@
 import html
 import json
 import os
+import secrets
 import subprocess
 
 from flask import Flask, session, redirect, url_for, request, jsonify
 
 from agecheck import AgeVerifier, VerifierError
 from agecheck.reasons import explain
+from agecheck.zecpay import (
+    InvoiceStore,
+    PaymentError,
+    ZecCheckoutClient,
+    verify_webhook,
+)
 
 VERIFIER = os.environ.get("VERIFIER_URL", "http://127.0.0.1:8000")
 SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "http://localhost:5000")
@@ -16,6 +23,17 @@ DEMO = os.environ.get("DEMO_FAKE_WALLET") == "1"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-later")
 verifier = AgeVerifier(VERIFIER)
+
+# Optional payment step after the age check. Off by default. Test network only.
+PAYMENT_GATE = os.environ.get("PAYMENT_GATE") == "1"
+ZC_URL = os.environ.get("ZC_URL", "http://127.0.0.1:8080")
+ZC_API_KEY = os.environ.get("ZC_API_KEY", "")
+ZC_WEBHOOK_SECRET = os.environ.get("ZC_WEBHOOK_SECRET", "")
+PRICE_ZEC = os.environ.get("PRICE_ZEC", "0.001")
+if PAYMENT_GATE and (len(ZC_API_KEY) < 24 or len(ZC_WEBHOOK_SECRET) < 24):
+    raise RuntimeError("PAYMENT_GATE needs ZC_API_KEY and ZC_WEBHOOK_SECRET (24+ characters each)")
+zec = ZecCheckoutClient(ZC_URL, ZC_API_KEY)
+invoices = InvoiceStore()
 
 PAGE = """
 <h1>Verify your age</h1>
@@ -138,10 +156,110 @@ def demo_verify():
     ), 403
 
 
+PAY_TAIL = """
+<p id="status">Waiting for payment...</p>
+<script>
+async function poll() {
+  try {
+    const r = await fetch('/pay/status');
+    const s = await r.json();
+    document.getElementById('status').textContent = 'Status: ' + s.status;
+    if (s.status === 'paid') { location.href = '/members'; return; }
+  } catch (e) {}
+  setTimeout(poll, 5000);
+}
+poll();
+</script>
+"""
+
+
+@app.route("/pay")
+def pay():
+    if not session.get("is_adult"):
+        return redirect(url_for("verify"))
+    if not PAYMENT_GATE:
+        return redirect(url_for("members"))
+    record = invoices.get(session.get("invoice_id"))
+    if record is None:
+        try:
+            created = zec.create_invoice(PRICE_ZEC, secrets.token_hex(8))
+        except PaymentError:
+            return "<h1>Payment service unavailable</h1>", 502
+        invoices.add(
+            created["id"],
+            created.get("amount_zat"),
+            str(created.get("payment_uri", "")),
+            str(created.get("address", "")),
+        )
+        session["invoice_id"] = created["id"]
+        record = invoices.get(created["id"])
+    if record["status"] == "paid":
+        return redirect(url_for("members"))
+    link = ""
+    if record["payment_uri"].startswith("zcash:"):
+        link = '<p><a href="' + html.escape(record["payment_uri"], quote=True) + '">Open in my wallet</a></p>'
+    return (
+        "<h1>Payment</h1>"
+        "<p>You passed the age check. This area needs a small shielded Zcash payment "
+        "(test network only).</p>"
+        "<p>Amount: " + html.escape(PRICE_ZEC) + " ZEC</p>"
+        "<p>Address:<br><code>" + html.escape(record["address"]) + "</code></p>"
+        + link + PAY_TAIL
+    )
+
+
+@app.route("/pay/status")
+def pay_status():
+    record = invoices.get(session.get("invoice_id"))
+    return jsonify({"status": record["status"] if record else "none"})
+
+
+@app.route("/webhooks/zeccheckout", methods=["POST"])
+def zeccheckout_webhook():
+    raw = request.get_data()
+    if not verify_webhook(ZC_WEBHOOK_SECRET, request.headers.get("ZecCheckout-Signature"), raw):
+        return jsonify({"error": "bad signature"}), 400
+    body = request.get_json(silent=True)
+    invoice = body.get("invoice") if isinstance(body, dict) else None
+    if not isinstance(invoice, dict):
+        return jsonify({"error": "bad body"}), 400
+    event_id, seq, event = body.get("event_id"), body.get("seq"), body.get("event")
+    invoice_id, status = invoice.get("id"), invoice.get("status")
+    if not all(isinstance(v, str) for v in (event_id, event, invoice_id, status)):
+        return jsonify({"error": "bad body"}), 400
+    if not invoices.is_new_event(invoice_id, event_id, seq):
+        return jsonify({"ignored": True})
+    if status == "paid":
+        record = invoices.get(invoice_id)
+        try:
+            confirmed_by_server = zec.get_invoice(invoice_id)
+        except PaymentError:
+            return jsonify({"error": "could not confirm"}), 503  # the sender will retry
+        expected = record["amount_zat"]
+        amount_ok = True
+        if isinstance(expected, int):
+            confirmed = invoice.get("confirmed_zat")
+            amount_ok = (
+                invoice.get("amount_zat") == expected
+                and isinstance(confirmed, int)
+                and confirmed >= expected
+            )
+        if confirmed_by_server.get("status") != "paid" or not amount_ok:
+            return jsonify({"ignored": True})
+        invoices.record(invoice_id, event_id, seq, "paid")
+        return jsonify({"ok": True})
+    if status in ("pending", "underpaid", "detected", "expired"):
+        invoices.record(invoice_id, event_id, seq, status)
+        return jsonify({"ok": True})
+    return jsonify({"ignored": True})
+
+
 @app.route("/members")
 def members():
     if not session.get("is_adult"):
         return redirect(url_for("home"))
+    if PAYMENT_GATE and not invoices.is_paid(session.get("invoice_id")):
+        return redirect(url_for("pay"))
     return '<h1>Members area</h1><p>You passed the age check.</p><p><a href="/logout">Log out</a></p>'
 
 

@@ -218,6 +218,46 @@ certificate the wallet presented:
 The presented certificate is public data. Never trust a root you have not checked
 this way.
 
+## Try the payment gate with a fake checkout server (no wallet, no coins)
+
+The site can ask for a small shielded Zcash payment after the age check. It is **off by
+default** and meant for the Zcash test network only. To try the whole flow without a
+wallet, run a fake checkout server that "pays" invoices on request. It uses no
+blockchain and no money.
+
+1. Window 1, the fake checkout server:
+
+```
+venv\Scripts\activate
+$env:ZC_API_KEY = "fake-api-key-for-local-testing-only"
+$env:ZC_WEBHOOK_SECRET = "fake-webhook-secret-for-local-tests"
+python scripts\fake_zeccheckout.py
+```
+
+2. Window 2, the site (with the verifier running as before):
+
+```
+venv\Scripts\activate
+$env:PAYMENT_GATE = "1"
+$env:ZC_API_KEY = "fake-api-key-for-local-testing-only"
+$env:ZC_WEBHOOK_SECRET = "fake-webhook-secret-for-local-tests"
+$env:ZC_URL = "http://127.0.0.1:8080"
+$env:SITE_ORIGIN = "http://localhost:5000"
+flask --app app run
+```
+
+3. Pass the age check at <http://localhost:5000/verify>. The site then shows a payment
+   page instead of the members page.
+4. Open <http://127.0.0.1:8080/fake/> and press **Simulate payment**. The payment page
+   switches to the members page within a few seconds.
+
+How it is protected: the site accepts a payment message only if its HMAC signature is
+valid and recent, ignores repeats and out-of-order messages, asks the checkout server to
+confirm the invoice is really paid, and checks the amount. The site never holds a
+spending key. Invoice state is kept in memory, so a restart forgets it; a real site would
+need a database. A real ZecCheckout server needs a viewing key and a test-network wallet
+to pay from, which this project has not set up yet.
+
 ## Known problems and open questions
 
 - **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit

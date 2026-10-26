@@ -5,16 +5,19 @@ Three small pieces, none of which touch a spending key:
 * ``ZecCheckoutClient``: asks the checkout server for an invoice and reads one back.
 * ``verify_webhook``: checks the signature on the server's "payment status changed"
   message (HMAC-SHA256 over ``"<timestamp>." + raw body``) and rejects stale ones.
-* ``InvoiceStore``: remembers which invoices exist and which are paid, in memory.
+* ``InvoiceStore``: remembers which invoices exist and which are paid, in a small
+  SQLite file (or in memory when no file is given).
 
-Testnet demo code. The store forgets everything on restart; a real site needs a
-database.
+Testnet demo code. The SQLite file suits one site process; a busier site would want
+a proper database.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import json
+import sqlite3
 import threading
 import time
 
@@ -100,27 +103,55 @@ class ZecCheckoutClient:
 
 
 class InvoiceStore:
-    """In-memory record of invoices, their status, and the webhook events already applied."""
+    """Record of invoices, their status, and the webhook events already applied.
 
-    def __init__(self) -> None:
+    With a file path the record lives in a SQLite file and survives restarts.
+    Without one (``None``) it lives in memory only, which is what the tests use.
+    """
+
+    def __init__(self, path: str | None = None) -> None:
         self._lock = threading.Lock()
-        self._invoices: dict[str, dict] = {}
+        self._db = sqlite3.connect(path or ":memory:", check_same_thread=False)
+        with self._lock, self._db:
+            self._db.execute(
+                "CREATE TABLE IF NOT EXISTS invoices ("
+                "id TEXT PRIMARY KEY, status TEXT NOT NULL, amount_zat TEXT NOT NULL, "
+                "payment_uri TEXT NOT NULL, address TEXT NOT NULL, seq INTEGER NOT NULL)"
+            )
+            self._db.execute(
+                "CREATE TABLE IF NOT EXISTS events ("
+                "invoice_id TEXT NOT NULL, event_id TEXT NOT NULL, "
+                "PRIMARY KEY (invoice_id, event_id))"
+            )
 
     def add(self, invoice_id: str, amount_zat, payment_uri: str, address: str) -> None:
-        with self._lock:
-            self._invoices[invoice_id] = {
-                "status": "pending",
-                "amount_zat": amount_zat,
-                "payment_uri": payment_uri,
-                "address": address,
-                "seq": -1,
-                "events": set(),
-            }
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO invoices VALUES (?, 'pending', ?, ?, ?, -1)",
+                (invoice_id, json.dumps(amount_zat), payment_uri, address),
+            )
+            self._db.execute("DELETE FROM events WHERE invoice_id = ?", (invoice_id,))
+
+    def _row(self, invoice_id):
+        if not isinstance(invoice_id, str):
+            return None
+        return self._db.execute(
+            "SELECT status, amount_zat, payment_uri, address, seq FROM invoices WHERE id = ?",
+            (invoice_id,),
+        ).fetchone()
 
     def get(self, invoice_id) -> dict | None:
         with self._lock:
-            record = self._invoices.get(invoice_id) if isinstance(invoice_id, str) else None
-            return None if record is None else {k: v for k, v in record.items() if k != "events"}
+            row = self._row(invoice_id)
+        if row is None:
+            return None
+        return {
+            "status": row[0],
+            "amount_zat": json.loads(row[1]),
+            "payment_uri": row[2],
+            "address": row[3],
+            "seq": row[4],
+        }
 
     def is_paid(self, invoice_id) -> bool:
         record = self.get(invoice_id)
@@ -129,19 +160,29 @@ class InvoiceStore:
     def is_new_event(self, invoice_id: str, event_id: str, seq) -> bool:
         """True unless this event was already applied or is older than one that was."""
         with self._lock:
-            record = self._invoices.get(invoice_id)
-            if record is None or event_id in record["events"]:
+            row = self._row(invoice_id)
+            if row is None:
                 return False
-            return not (isinstance(seq, int) and seq <= record["seq"])
+            seen = self._db.execute(
+                "SELECT 1 FROM events WHERE invoice_id = ? AND event_id = ?",
+                (invoice_id, event_id),
+            ).fetchone()
+            if seen is not None:
+                return False
+            return not (isinstance(seq, int) and seq <= row[4])
 
     def record(self, invoice_id: str, event_id: str, seq, status: str) -> None:
         """Remember an event and move the status on. ``paid`` is final."""
-        with self._lock:
-            record = self._invoices.get(invoice_id)
-            if record is None:
+        with self._lock, self._db:
+            row = self._row(invoice_id)
+            if row is None:
                 return
-            record["events"].add(event_id)
-            if isinstance(seq, int):
-                record["seq"] = max(record["seq"], seq)
-            if record["status"] != "paid":
-                record["status"] = status
+            self._db.execute(
+                "INSERT OR IGNORE INTO events VALUES (?, ?)", (invoice_id, event_id)
+            )
+            new_seq = max(row[4], seq) if isinstance(seq, int) else row[4]
+            new_status = row[0] if row[0] == "paid" else status
+            self._db.execute(
+                "UPDATE invoices SET status = ?, seq = ? WHERE id = ?",
+                (new_status, new_seq, invoice_id),
+            )

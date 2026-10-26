@@ -33,7 +33,7 @@ PRICE_ZEC = os.environ.get("PRICE_ZEC", "0.001")
 if PAYMENT_GATE and (len(ZC_API_KEY) < 24 or len(ZC_WEBHOOK_SECRET) < 24):
     raise RuntimeError("PAYMENT_GATE needs ZC_API_KEY and ZC_WEBHOOK_SECRET (24+ characters each)")
 zec = ZecCheckoutClient(ZC_URL, ZC_API_KEY)
-invoices = InvoiceStore()
+invoices = InvoiceStore(os.environ.get("INVOICE_DB", "invoices.db") if PAYMENT_GATE else None)
 
 PAGE = """
 <h1>Verify your age</h1>

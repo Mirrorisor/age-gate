@@ -23,6 +23,13 @@ I'm putting these here because they cost me hours and might save you some:
 5. **Getting test coins took longest of all.** I needed a wallet that supports testnet (Zingo lets you pick the network when you create the wallet, and you can't change it afterwards) and some coins. One faucet looked funded but showed zero payouts in 24 hours and refused my addresses, so I asked people instead, and someone on the Zcash Foundation team kindly sent me 2 test ZEC.
 6. **Small traps:** a viewing key got damaged when I copied it, and an old paid invoice in my browser made the payment page skip itself.
 
+## Update: I sent a fix
+
+After posting the issue I wrote the missing log line myself and offered it to the maintainers as a pull request. It logs which certificate was refused, so an operator can see why; the person presenting the credential still only sees "untrusted issuer". A first-time contributor's automated checks wait for a maintainer to approve them, so while I wait I run my own copy of the verifier (a fork) in my age gate: https://github.com/Mirrorisor/zk-age-verifier
+
+Setting that up taught me two more things. A real test certificate in the verifier's test suite expired on 24 September 2026, which made one of its tests fail for everyone, so in my fork I pinned the clock in that test. And a fork has a cost: security fixes from the original project don't arrive by themselves, I have to bring them over by hand. I looked at writing my own verifier instead and decided against it: the hard part is the cryptography, and a mistake there would silently let the wrong people in or keep the right ones out.
+
+My pull request and the issue: https://github.com/pipe23-org/zk-age-verifier/pulls?q=author%3AMirrorisor
 ## What this is not
 
 It isn't secure enough for real users or real money. The verifier calls itself pre-alpha. ZecCheckout is a prototype that uses a public server and doesn't verify proof-of-work, so a hostile server could make an unpaid invoice look paid. For anything real you'd want your own node, real issuers, a proper database, and a review by someone who does this for a living. I also haven't tested any real government-issued credential, so I can't say yet which wallets and issuers will exist for Australians.

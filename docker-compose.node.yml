@@ -1,0 +1,18 @@
+# A Zcash TESTNET full node (Zebra). Testnet only: about 10 GB of disk.
+#
+#   docker compose -p zebra-node -f docker-compose.node.yml up -d
+#   docker compose -p zebra-node -f docker-compose.node.yml logs --tail 5
+#   docker compose -p zebra-node -f docker-compose.node.yml down      (keeps the downloaded data)
+#   docker compose -p zebra-node -f docker-compose.node.yml down -v   (deletes the data too)
+
+services:
+  zebra:
+    image: zfnd/zebra:latest
+    restart: unless-stopped
+    environment:
+      ZEBRA_NETWORK__NETWORK: Testnet
+    volumes:
+      - zebra-testnet:/home/zebra/.cache/zebra
+
+volumes:
+  zebra-testnet:

@@ -60,5 +60,29 @@ services:
       ZC_WEBHOOK_URL: http://site:5000/webhooks/zeccheckout
       FAKE_HOST: 0.0.0.0
 
+  # The real ZecCheckout server, on the Zcash TESTNET. Start it with:
+  #   docker compose --profile zec up --build
+  # Do not run it together with the fakepay profile (both use port 8080).
+  # Needs ZC_UFVK (a testnet viewing key, never a seed or spending key) in .env,
+  # and ZC_URL=http://zeccheckout:10000 so the site talks to it.
+  zeccheckout:
+    profiles: ["zec"]
+    image: ghcr.io/samizdatproject/zeccheckout:latest
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:8080:10000"
+    volumes:
+      - zecdata:/home/nonroot
+    environment:
+      ZC_NETWORK: testnet
+      ZC_UFVK: ${ZC_UFVK:-}
+      ZC_API_KEY: ${ZC_API_KEY:-}
+      ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}
+      ZC_WEBHOOK_URL: http://site:5000/webhooks/zeccheckout
+      ZC_PUBLIC_URL: http://127.0.0.1:8080
+      ZC_MIN_CONFIRMATIONS: "3"
+      ZC_DB: /home/nonroot/zeccheckout.db
+
 volumes:
   sitedata:
+  zecdata:

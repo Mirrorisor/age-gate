@@ -1,0 +1,7 @@
+# Runs the verifier built from our fork instead of upstream's published image.
+# Use:  docker compose -f docker-compose.yml -f docker-compose.fork.yml up --build
+services:
+  verifier:
+    image: age-gate-verifier-fork:local
+    build:
+      context: https://github.com/Mirrorisor/zk-age-verifier.git#main

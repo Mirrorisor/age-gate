@@ -369,3 +369,9 @@ reference app, Zingo Labs' Zingo wallet, the Zcash Foundation's Zebra, and
 [ZecCheckout](https://github.com/samizdatproject/zeccheckout) by Samizdat Project.
 This repository contains only glue code and scripts written while learning; none of
 the above is included in it.
+
+## Running the verifier from our fork
+
+By default the stack uses upstream's published verifier image. To run the fork at https://github.com/Mirrorisor/zk-age-verifier instead (it logs which certificate was refused, issue #76):
+
+    docker compose --profile zec -f docker-compose.yml -f docker-compose.fork.yml up --build

@@ -4,15 +4,15 @@ WORKDIR /app
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN pip install --no-cache-dir . flask
+RUN pip install --no-cache-dir . flask gunicorn
 
 COPY app.py ./
 
 RUN useradd --create-home appuser && mkdir /data && chown appuser /data
 USER appuser
 
-ENV FLASK_APP=app.py
 EXPOSE 5000
 
-# Flask's built-in server: fine for a local demo, not for the public internet.
-CMD ["flask", "run", "--host", "0.0.0.0", "--port", "5000"]
+# gunicorn, not Flask's built-in server. One worker process on purpose: the rate
+# limiter keeps its counts in memory, so extra workers would each count separately.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app:app"]

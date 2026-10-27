@@ -3,8 +3,11 @@ import json
 import os
 import secrets
 import subprocess
+import threading
+import time
+from collections import defaultdict, deque
 
-from flask import Flask, session, redirect, url_for, request, jsonify
+from flask import Flask, g, session, redirect, url_for, request, jsonify
 
 from agecheck import AgeVerifier, VerifierError
 from agecheck.reasons import explain
@@ -21,8 +24,100 @@ SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "http://localhost:5000")
 DEMO = os.environ.get("DEMO_FAKE_WALLET") == "1"
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-me-later")
+# The session cookie is signed with this key, so anyone who knows it can forge a
+# "passed the age check" cookie. With no SECRET_KEY we make a random one for this
+# run (nobody can guess it, but everyone is logged out when the site restarts).
+_PLACEHOLDER_KEY = "change-me-later"
+_configured_key = os.environ.get("SECRET_KEY", "")
+HAVE_REAL_KEY = bool(_configured_key) and _configured_key != _PLACEHOLDER_KEY
+app.secret_key = _configured_key if HAVE_REAL_KEY else secrets.token_hex(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    # Set SESSION_COOKIE_SECURE=1 when the site is served over https.
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1",
+    MAX_CONTENT_LENGTH=64 * 1024,  # the default for every route but the proof upload
+)
+# The wallet's zero-knowledge proof is hundreds of kilobytes, so /api/finish gets more room.
+PROOF_UPLOAD_LIMIT = 4 * 1024 * 1024
 verifier = AgeVerifier(VERIFIER)
+
+
+class RateLimiter:
+    """Allow `limit` requests per `window` seconds for each client address.
+
+    It lives in this process's memory, so run one worker process (the Dockerfile
+    does). Behind a reverse proxy every visitor may share the proxy's address.
+    """
+
+    def __init__(self, limit, window=60.0):
+        self.limit = limit
+        self.window = window
+        self._hits = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def allow(self, key):
+        if self.limit <= 0:
+            return True
+        now = time.monotonic()
+        with self._lock:
+            hits = self._hits[key]
+            while hits and now - hits[0] > self.window:
+                hits.popleft()
+            if len(hits) >= self.limit:
+                return False
+            hits.append(now)
+            return True
+
+    def reset(self):
+        with self._lock:
+            self._hits.clear()
+
+
+# Requests per minute per address for the age-check and payment routes. 0 turns it off.
+limiter = RateLimiter(int(os.environ.get("RATE_LIMIT_PER_MIN", "30")))
+
+
+@app.errorhandler(413)
+def too_large(_error):
+    return jsonify({"error": "too large", "message": "That request was too large."}), 413
+
+
+def too_many():
+    response = jsonify({"error": "too many requests", "message": "Too many tries. Wait a minute."})
+    response.status_code = 429
+    response.headers["Retry-After"] = "60"
+    return response
+
+
+@app.before_request
+def throttle():
+    g.nonce = secrets.token_urlsafe(16)
+    if request.path == "/api/finish":
+        request.max_content_length = PROOF_UPLOAD_LIMIT
+    if request.path in ("/api/start", "/api/finish", "/pay", "/demo-verify"):
+        if not limiter.allow(request.remote_addr):
+            return too_many()
+
+
+@app.after_request
+def add_security_headers(response):
+    nonce = getattr(g, "nonce", "")
+    # The two inline scripts in this file get the per-request nonce the policy allows.
+    if response.mimetype == "text/html" and not response.direct_passthrough:
+        body = response.get_data(as_text=True)
+        if "<script>" in body:
+            response.set_data(body.replace("<script>", '<script nonce="' + nonce + '">'))
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; script-src 'nonce-" + nonce + "'; connect-src 'self'; "
+        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.path in ("/pay", "/pay/status", "/members") or request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Optional payment step after the age check. Off by default. Test network only.
 PAYMENT_GATE = os.environ.get("PAYMENT_GATE") == "1"
@@ -32,7 +127,7 @@ ZC_WEBHOOK_SECRET = os.environ.get("ZC_WEBHOOK_SECRET", "")
 PRICE_ZEC = os.environ.get("PRICE_ZEC", "0.001")
 if PAYMENT_GATE and (len(ZC_API_KEY) < 24 or len(ZC_WEBHOOK_SECRET) < 24):
     raise RuntimeError("PAYMENT_GATE needs ZC_API_KEY and ZC_WEBHOOK_SECRET (24+ characters each)")
-if PAYMENT_GATE and app.secret_key == "change-me-later":
+if PAYMENT_GATE and not HAVE_REAL_KEY:
     raise RuntimeError("PAYMENT_GATE needs a real SECRET_KEY (see .env.example)")
 zec = ZecCheckoutClient(ZC_URL, ZC_API_KEY)
 invoices = InvoiceStore(os.environ.get("INVOICE_DB", "invoices.db") if PAYMENT_GATE else None)
@@ -40,7 +135,7 @@ invoices = InvoiceStore(os.environ.get("INVOICE_DB", "invoices.db") if PAYMENT_G
 PAGE = """
 <h1>Verify your age</h1>
 <p>Your wallet will prove you are over 18 without sharing your birthdate.</p>
-<button onclick="go()">Verify with my wallet</button>
+<button id="go">Verify with my wallet</button>
 <p id="msg"></p>
 <script>
 async function go() {
@@ -68,6 +163,7 @@ async function go() {
     msg.textContent = 'Error: ' + e.message;
   }
 }
+document.getElementById('go').addEventListener('click', go);
 </script>
 """
 

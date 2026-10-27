@@ -30,3 +30,13 @@ on test certificates; none of this makes it fit for real users.
   determined one.
 - Run it behind https (a reverse proxy such as Caddy or traefik) before anyone real uses it.
 - The verifier it relies on is experimental; see the README's known problems.
+
+## How the privacy claims are kept honest
+
+`tests/test_privacy_audit.py` runs with the other tests and fails if the site starts storing
+or showing more than `/privacy` says: the session cookie may only hold `av_session`,
+`is_adult` and `invoice_id`; it must never contain the proof or any claim; the proof is not
+echoed back; no page loads anything from another site; every page sends
+`Referrer-Policy: no-referrer`; and visiting a page sets no cookie. If a test fails, either
+the site changed what it collects or the privacy page must change. Do not edit the test to
+make it pass.

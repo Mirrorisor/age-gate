@@ -349,6 +349,10 @@ the saved database remembers as paid. Use a private window or clear cookies for 
 - The Flask `secret_key` in `app.py` is a placeholder. Change it before using
   this for anything beyond a local demo.
 
+## Write-up
+
+A plain-language account of what I built and what went wrong along the way: [docs/WRITEUP.md](docs/WRITEUP.md).
+
 ## Credits and licences
 
 Built on open-source work by others: Google's

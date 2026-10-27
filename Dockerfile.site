@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir . flask
 
 COPY app.py ./
 
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser && mkdir /data && chown appuser /data
 USER appuser
 
 ENV FLASK_APP=app.py

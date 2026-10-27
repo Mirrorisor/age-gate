@@ -157,4 +157,4 @@ def fake_home():
 if __name__ == "__main__":
     if len(API_KEY) < 24 or len(WEBHOOK_SECRET) < 24:
         sys.exit("Set ZC_API_KEY and ZC_WEBHOOK_SECRET (24+ characters each) first.")
-    app.run(host="127.0.0.1", port=int(os.environ.get("FAKE_PORT", "8080")))
+    app.run(host=os.environ.get("FAKE_HOST", "127.0.0.1"), port=int(os.environ.get("FAKE_PORT", "8080")))

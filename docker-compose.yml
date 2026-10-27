@@ -5,6 +5,11 @@
 #   2. Stop any verifier you started by hand:  docker stop zkv
 #   3. docker compose up --build
 # Then open http://localhost:5000 (use localhost, not 127.0.0.1).
+#
+# To try the payment step with the fake checkout server (no wallet, no coins):
+#   put PAYMENT_GATE=1 and the two fake keys from .env.example in .env, then run
+#   docker compose --profile fakepay up --build
+# and open http://127.0.0.1:8080/fake/ to "pay".
 
 services:
   verifier:
@@ -24,7 +29,36 @@ services:
       - verifier
     ports:
       - "127.0.0.1:5000:5000"
+    volumes:
+      - sitedata:/data
     environment:
       VERIFIER_URL: http://verifier:8000
       SITE_ORIGIN: http://localhost:5000
       SECRET_KEY: ${SECRET_KEY:?Create a .env file with SECRET_KEY (see .env.example)}
+      PAYMENT_GATE: ${PAYMENT_GATE:-0}
+      ZC_URL: ${ZC_URL:-http://fakepay:8080}
+      ZC_API_KEY: ${ZC_API_KEY:-}
+      ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}
+      PRICE_ZEC: ${PRICE_ZEC:-0.001}
+      INVOICE_DB: /data/invoices.db
+
+  # A stand-in for ZecCheckout so the payment step can be tried with no wallet.
+  # Only starts with:  docker compose --profile fakepay up --build
+  fakepay:
+    profiles: ["fakepay"]
+    build:
+      context: .
+      dockerfile: Dockerfile.site
+    command: ["python", "/scripts/fake_zeccheckout.py"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      ZC_API_KEY: ${ZC_API_KEY:-}
+      ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}
+      ZC_WEBHOOK_URL: http://site:5000/webhooks/zeccheckout
+      FAKE_HOST: 0.0.0.0
+
+volumes:
+  sitedata:

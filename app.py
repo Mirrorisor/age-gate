@@ -32,6 +32,8 @@ ZC_WEBHOOK_SECRET = os.environ.get("ZC_WEBHOOK_SECRET", "")
 PRICE_ZEC = os.environ.get("PRICE_ZEC", "0.001")
 if PAYMENT_GATE and (len(ZC_API_KEY) < 24 or len(ZC_WEBHOOK_SECRET) < 24):
     raise RuntimeError("PAYMENT_GATE needs ZC_API_KEY and ZC_WEBHOOK_SECRET (24+ characters each)")
+if PAYMENT_GATE and app.secret_key == "change-me-later":
+    raise RuntimeError("PAYMENT_GATE needs a real SECRET_KEY (see .env.example)")
 zec = ZecCheckoutClient(ZC_URL, ZC_API_KEY)
 invoices = InvoiceStore(os.environ.get("INVOICE_DB", "invoices.db") if PAYMENT_GATE else None)
 
@@ -180,7 +182,7 @@ def pay():
     if not PAYMENT_GATE:
         return redirect(url_for("members"))
     record = invoices.get(session.get("invoice_id"))
-    if record is None:
+    if record is None or record["status"] == "expired":
         try:
             created = zec.create_invoice(PRICE_ZEC, secrets.token_hex(8))
         except PaymentError:
@@ -260,7 +262,33 @@ def members():
         return redirect(url_for("home"))
     if PAYMENT_GATE and not invoices.is_paid(session.get("invoice_id")):
         return redirect(url_for("pay"))
-    return '<h1>Members area</h1><p>You passed the age check.</p><p><a href="/logout">Log out</a></p>'
+    return '<h1>Members area</h1><p>You passed the age check.</p><p><a href="/privacy">What this site learns</a> | <a href="/logout">Log out</a></p>'
+
+
+@app.route("/privacy")
+def privacy():
+    payment = (
+        "<li>Payment step: the checkout service tells this site whether an invoice "
+        "was paid. Shielded Zcash payments do not reveal who paid.</li>"
+        if PAYMENT_GATE
+        else ""
+    )
+    return (
+        "<h1>What this site learns about you</h1>"
+        "<p>This is an experimental demo. It uses test certificates and must not be "
+        "used to protect real people or content.</p>"
+        "<ul>"
+        "<li>Age check: your wallet proves you are over 18 using a zero-knowledge proof. "
+        "This site and the verifier see the answer (yes or no), not your birthdate, "
+        "name or ID.</li>"
+        "<li>A browser cookie records that you passed (and, if payments are on, which "
+        "random invoice number is yours). It holds no personal details. Logging out "
+        "removes the passed flag.</li>"
+        + payment
+        + "<li>This demo keeps no accounts and no record of who you are.</li>"
+        "</ul>"
+        '<p><a href="/">Home</a></p>'
+    )
 
 
 @app.route("/logout")

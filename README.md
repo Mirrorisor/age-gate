@@ -190,6 +190,27 @@ Both are demo roots. They belong in a local test setup only, never on a real sit
 `.env` is ignored by git. Keep it that way. The site runs on Flask's built-in
 server, which is fine for a local demo and not for the public internet.
 
+### Trying the payment step with Compose
+
+The Compose file can also start the fake checkout server from the payment section
+below, so the whole payment flow runs with one command and no wallet or coins.
+
+1. In `.env`, add these three lines (made-up values for local testing only):
+
+   ```
+   PAYMENT_GATE=1
+   ZC_API_KEY=fake-api-key-for-local-testing-1234
+   ZC_WEBHOOK_SECRET=fake-webhook-secret-for-local-testing-1234
+   ```
+
+2. `docker compose --profile fakepay up --build`
+3. Pass the age check at <http://localhost:5000/verify>, open `/members` (it sends you
+   to `/pay`), then open <http://127.0.0.1:8080/fake/> and click **Simulate payment**.
+
+Payment records are kept in a Docker volume, so they survive `docker compose down`.
+`docker compose down -v` deletes them. Without `--profile fakepay` the fake server does
+not start, and with `PAYMENT_GATE` unset the site has no payment step at all.
+
 ## Checking your trusted certificates
 
 ```
@@ -239,6 +260,7 @@ python scripts\fake_zeccheckout.py
 ```
 venv\Scripts\activate
 $env:PAYMENT_GATE = "1"
+$env:SECRET_KEY = "any-long-random-text-for-local-testing"
 $env:ZC_API_KEY = "fake-api-key-for-local-testing-only"
 $env:ZC_WEBHOOK_SECRET = "fake-webhook-secret-for-local-tests"
 $env:ZC_URL = "http://127.0.0.1:8080"

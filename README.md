@@ -24,6 +24,8 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Real phone wallet producing a ZK proof | **Works** with the Multipaz Test App's **Age Verification** document, once the issuer's root certificate is in the verifier's `certs` folder (see "Using a real phone wallet"). Photo ID and mDL documents do not work (see known problems). |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
 | Flask site accepting a successful check end to end | **Works** with a real phone wallet and in demo mode (`DEMO_FAKE_WALLET=1`). The site opens `/members` only on a `verified` verdict. |
+| A second wallet and issuer | **Works** with the EU Age Verification reference app and the EU demo issuer (see "Two wallets, two issuers (tested)"). |
+| Optional payment step (`PAYMENT_GATE=1`) | **Works on the Zcash testnet only.** Tested with a fake checkout server and with the real ZecCheckout and a testnet wallet. Never use real funds. |
 
 ## How it fits together
 
@@ -344,10 +346,13 @@ the saved database remembers as paid. Use a private window or clear cookies for 
   that way). Prefer individual root certificates that you checked by hand.
 - **`untrusted-issuer` carries no detail,** so finding the right root takes the
   debugging steps above.
+  I reported this and the trust-list point to the verifier's maintainers:
+  <https://github.com/pipe23-org/zk-age-verifier/issues/76>.
 - **Windows:** the verifier's compiled dependency has no Windows build, which is
   why it runs in Docker instead of `pip install`.
-- The Flask `secret_key` in `app.py` is a placeholder. Change it before using
-  this for anything beyond a local demo.
+- The Flask `secret_key` falls back to a placeholder unless `SECRET_KEY` is set.
+  Compose requires it, and the payment step refuses to start with the placeholder.
+  Always set a real one beyond a quick local test.
 
 ## Write-up
 
@@ -359,6 +364,8 @@ Built on open-source work by others: Google's
 [Longfellow ZK](https://github.com/google/longfellow-zk), the
 [pylongfellow](https://pypi.org/project/pylongfellow/) Python binding and
 [zk-age-verifier](https://pypi.org/project/zk-age-verifier/) by pipe23-org, and
-the Multipaz test app from the OpenWallet Foundation. This repository contains
-only glue code and scripts written while learning; none of the above is
-included in it.
+the Multipaz test app from the OpenWallet Foundation, the EU age verification
+reference app, Zingo Labs' Zingo wallet, the Zcash Foundation's Zebra, and
+[ZecCheckout](https://github.com/samizdatproject/zeccheckout) by Samizdat Project.
+This repository contains only glue code and scripts written while learning; none of
+the above is included in it.

@@ -29,6 +29,9 @@ After posting the issue I wrote the missing log line myself and offered it to th
 
 Setting that up taught me two more things. A real test certificate in the verifier's test suite expired on 24 September 2026, which made one of its tests fail for everyone, so in my fork I pinned the clock in that test. And a fork has a cost: security fixes from the original project don't arrive by themselves, I have to bring them over by hand. I looked at writing my own verifier instead and decided against it: the hard part is the cryptography, and a mistake there would silently let the wrong people in or keep the right ones out.
 
+The second half of the issue, the trust-list loader, I fixed in the fork only, because it changes behaviour and the maintainers haven't been asked yet. A trust list now only trusts the certificates listed under a service, not the list's own signer or its old service versions. It still doesn't check the list's signature, and the docs now say so plainly.
+
+Then I went back over my own site. The biggest hole was dull: with no secret key set, the site used a fixed default, and anyone who knows the default can forge a "passed the age check" cookie. It now makes a random key instead. I also added rate limits, browser security headers, and a proper web server. I got one thing wrong along the way: I capped request sizes at 64 KB, and the wallet's proof is much bigger, so the age check broke on my own phone until I raised the limit for that one route. A real device found in a minute what my tests had missed.
 My pull request and the issue: https://github.com/pipe23-org/zk-age-verifier/pulls?q=author%3AMirrorisor
 ## What this is not
 

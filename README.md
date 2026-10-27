@@ -280,6 +280,50 @@ spending key. Invoice state is kept in memory, so a restart forgets it; a real s
 need a database. A real ZecCheckout server needs a viewing key and a test-network wallet
 to pay from, which this project has not set up yet.
 
+## Real testnet payment with ZecCheckout
+
+The payment step has also been run against the real
+[ZecCheckout](https://github.com/samizdatproject/zeccheckout) server on the Zcash
+**testnet**: pass the age check, get an invoice, pay 0.001 test ZEC (TAZ) from a testnet
+wallet (Zingo desktop), and the members page opens once ZecCheckout reports the invoice
+paid through a signed webhook. Testnet coins have no value. Never use real funds here.
+
+ZecCheckout is a prototype and holds only a *viewing key*: it can see payments but cannot
+spend. Read its own "Threat model" and "Limitations" before going further. In particular
+it uses a public lightwalletd server and does not verify proof-of-work.
+
+### Set it up
+
+1. **Make a throwaway testnet viewing key.** ZecCheckout's `zc-keygen` prints a viewing
+   key (UFVK) and saves the matching seed to a file. It can be built in Docker so you do
+   not need Rust:
+
+   ```
+   git clone https://github.com/samizdatproject/zeccheckout.git zeccheckout-src
+   mkdir zc-keys
+   docker run --rm -v ${PWD}\zeccheckout-src:/src -v ${PWD}\zc-keys:/out -e CARGO_TARGET_DIR=/tmp/target -w /src rust:1.99.0-slim-bookworm cargo run --release --locked --bin zc-keygen -- /out/zc-testnet-seed.txt
+   ```
+
+   Keep the clone and `zc-keys` outside this repository and never commit the seed file.
+
+2. **Fill in `.env`** (it is ignored by git): `PAYMENT_GATE=1`, `ZC_API_KEY` and
+   `ZC_WEBHOOK_SECRET` (two different random values of 24+ characters), `ZC_UFVK` (the
+   `uviewtest1...` key) and `ZC_URL=http://zeccheckout:10000`. If the viewing key is
+   damaged when copied you will see `invalid UFVK ... not Bech32m encoded`; write it with
+   PowerShell instead of an editor.
+
+3. **Start it:** `docker compose --profile zec up --build`. ZecCheckout scans from the
+   current chain tip, so start it *before* you pay. Do not run the `zec` and `fakepay`
+   profiles together (both use port 8080).
+
+4. **Pay.** Pass the age check, open `/members` (it sends you to `/pay`), copy the address
+   shown there into your testnet wallet and send 0.001. The page moves from pending to
+   detected to paid after about 3 confirmations (a few minutes on testnet) and then opens
+   the members area.
+
+If the site skips `/pay`, your browser may still hold an invoice from an earlier run that
+the saved database remembers as paid. Use a private window or clear cookies for localhost.
+
 ## Known problems and open questions
 
 - **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit

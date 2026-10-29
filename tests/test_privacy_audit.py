@@ -86,6 +86,20 @@ def test_logging_out_removes_the_passed_flag(monkeypatch):
     assert "is_adult" not in session_contents(client)
 
 
+def test_logging_out_forgets_the_invoice_too(monkeypatch):
+    """The next person on a shared browser must not inherit a paid invoice."""
+    client, _, _ = full_flow(monkeypatch, payment=True)
+    site.invoices.record("inv-1", "evt-1", 1, "paid")
+    assert client.get("/members").status_code == 200
+    client.get("/logout")
+    assert session_contents(client) == {}
+    client.post("/api/start")
+    client.post("/api/finish", json={"response": PROOF})
+    reply = client.get("/members")
+    assert reply.status_code == 302
+    assert reply.headers["Location"].endswith("/pay")
+
+
 PUBLIC_PAGES = ["/", "/verify", "/privacy", "/health"]
 
 

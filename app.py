@@ -379,7 +379,7 @@ def privacy():
         "name or ID.</li>"
         "<li>A browser cookie records that you passed (and, if payments are on, which "
         "random invoice number is yours). It holds no personal details. Logging out "
-        "removes the passed flag.</li>"
+        "clears it completely.</li>"
         + payment
         + "<li>This demo keeps no accounts and no record of who you are.</li>"
         "</ul>"
@@ -389,7 +389,10 @@ def privacy():
 
 @app.route("/logout")
 def logout():
-    session.pop("is_adult", None)
+    # Forget everything the cookie held, not just the pass. Keeping the invoice
+    # number would hand a paid invoice to the next person on a shared browser and
+    # tie their visit to the previous one.
+    session.clear()
     return redirect(url_for("home"))
 
 

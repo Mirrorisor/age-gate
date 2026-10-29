@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Invoices untouched for 30 days are deleted (`INVOICE_RETENTION_DAYS`, 0 keeps them). Older invoice files are upgraded in place.
+- The payment page asks visitors to pay from a shielded balance, and the privacy page says the verifier sees which organisation issued the credential.
 - Logging out now clears the whole session cookie, including the invoice number. Before, a paid invoice stayed in the cookie, so the next person on a shared browser who passed the age check got in without paying, and their visit was tied to the previous person's.
 
 ## 0.1.0

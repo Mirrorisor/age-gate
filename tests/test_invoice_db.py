@@ -1,6 +1,8 @@
 """The invoice store keeps its record in a SQLite file, so a restart does not forget payments."""
 
+import sqlite3
 import threading
+import time
 
 from agecheck.zecpay import InvoiceStore
 
@@ -88,3 +90,41 @@ def test_sequence_number_never_goes_backwards(tmp_path):
     store.record("i1", "e1", 5, "detected")
     store.record("i1", "e2", 3, "detected")
     assert store.get("i1")["seq"] == 5
+
+
+def test_old_invoices_and_their_events_are_pruned(tmp_path):
+    store = InvoiceStore(str(tmp_path / "inv.db"))
+    store.add("old", 100, "zcash:u1", "u1")
+    store.record("old", "e1", 1, "paid")
+    store.add("new", 100, "zcash:u2", "u2")
+    later = time.time() + 31 * 86400
+    store.record("new", "e2", 1, "detected")
+    removed = store.prune(30 * 86400, now=later)
+    assert removed == 2  # both are older than 30 days at `later`
+    assert store.get("old") is None and store.get("new") is None
+    store.add("old", 100, "zcash:u1", "u1")
+    assert store.is_new_event("old", "e1", 1)  # its events went too
+
+
+def test_recent_invoices_are_kept(tmp_path):
+    store = InvoiceStore(str(tmp_path / "inv.db"))
+    store.add("i1", 100, "zcash:u1", "u1")
+    assert store.prune(30 * 86400) == 0
+    assert store.get("i1") is not None
+
+
+def test_a_file_from_before_pruning_is_upgraded(tmp_path):
+    path = str(tmp_path / "inv.db")
+    db = sqlite3.connect(path)
+    db.execute(
+        "CREATE TABLE invoices (id TEXT PRIMARY KEY, status TEXT NOT NULL, "
+        "amount_zat TEXT NOT NULL, payment_uri TEXT NOT NULL, address TEXT NOT NULL, "
+        "seq INTEGER NOT NULL)"
+    )
+    db.execute("INSERT INTO invoices VALUES ('i1', 'paid', '100', 'zcash:u1', 'u1', 3)")
+    db.commit()
+    db.close()
+    store = InvoiceStore(path)
+    assert store.is_paid("i1")
+    assert store.prune(30 * 86400) == 0
+    assert store.prune(30 * 86400, now=time.time() + 31 * 86400) == 1

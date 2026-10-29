@@ -132,3 +132,13 @@ def test_the_privacy_page_states_the_limits_honestly():
     assert "experimental" in page
     assert "test certificates" in page
     assert "no accounts" in page.lower()
+
+
+def test_the_pay_page_says_to_pay_from_a_shielded_balance(monkeypatch):
+    client, _, _ = full_flow(monkeypatch, payment=True)
+    assert "shielded balance" in client.get("/pay").get_data(as_text=True)
+
+
+def test_the_privacy_page_says_the_verifier_sees_the_issuer():
+    page = site.app.test_client().get("/privacy").get_data(as_text=True)
+    assert "which organisation issued your credential" in page

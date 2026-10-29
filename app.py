@@ -131,6 +131,8 @@ if PAYMENT_GATE and not HAVE_REAL_KEY:
     raise RuntimeError("PAYMENT_GATE needs a real SECRET_KEY (see .env.example)")
 zec = ZecCheckoutClient(ZC_URL, ZC_API_KEY)
 invoices = InvoiceStore(os.environ.get("INVOICE_DB", "invoices.db") if PAYMENT_GATE else None)
+# Invoices untouched for this many days are deleted (0 keeps them forever).
+INVOICE_RETENTION_DAYS = float(os.environ.get("INVOICE_RETENTION_DAYS", "30"))
 
 PAGE = """
 <h1>Verify your age</h1>
@@ -277,6 +279,8 @@ def pay():
         return redirect(url_for("verify"))
     if not PAYMENT_GATE:
         return redirect(url_for("members"))
+    if INVOICE_RETENTION_DAYS > 0:
+        invoices.prune(INVOICE_RETENTION_DAYS * 86400)
     record = invoices.get(session.get("invoice_id"))
     if record is None or record["status"] == "expired":
         try:
@@ -302,7 +306,10 @@ def pay():
         "(test network only).</p>"
         "<p>Amount: " + html.escape(PRICE_ZEC) + " ZEC</p>"
         "<p>Address:<br><code>" + html.escape(record["address"]) + "</code></p>"
-        + link + PAY_TAIL
+        + link
+        + "<p>Pay from a shielded balance. A payment from a transparent balance puts "
+        "its time and amount on the public chain.</p>"
+        + PAY_TAIL
     )
 
 
@@ -377,6 +384,9 @@ def privacy():
         "<li>Age check: your wallet proves you are over 18 using a zero-knowledge proof. "
         "This site and the verifier see the answer (yes or no), not your birthdate, "
         "name or ID.</li>"
+        "<li>To check the proof, the verifier sees which organisation issued your "
+        "credential (its signing certificate), so it learns, for example, the country "
+        "or state. It does not keep this when the check passes.</li>"
         "<li>A browser cookie records that you passed (and, if payments are on, which "
         "random invoice number is yours). It holds no personal details. Logging out "
         "clears it completely.</li>"

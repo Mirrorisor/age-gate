@@ -123,12 +123,19 @@ class InvoiceStore:
                 "invoice_id TEXT NOT NULL, event_id TEXT NOT NULL, "
                 "PRIMARY KEY (invoice_id, event_id))"
             )
+            columns = {row[1] for row in self._db.execute("PRAGMA table_info(invoices)")}
+            if "updated_at" not in columns:
+                # Files made before invoices were pruned: start their clock now.
+                self._db.execute("ALTER TABLE invoices ADD COLUMN updated_at REAL")
+                self._db.execute("UPDATE invoices SET updated_at = ?", (time.time(),))
 
     def add(self, invoice_id: str, amount_zat, payment_uri: str, address: str) -> None:
         with self._lock, self._db:
             self._db.execute(
-                "INSERT OR REPLACE INTO invoices VALUES (?, 'pending', ?, ?, ?, -1)",
-                (invoice_id, json.dumps(amount_zat), payment_uri, address),
+                "INSERT OR REPLACE INTO invoices "
+                "(id, status, amount_zat, payment_uri, address, seq, updated_at) "
+                "VALUES (?, 'pending', ?, ?, ?, -1, ?)",
+                (invoice_id, json.dumps(amount_zat), payment_uri, address, time.time()),
             )
             self._db.execute("DELETE FROM events WHERE invoice_id = ?", (invoice_id,))
 
@@ -183,6 +190,25 @@ class InvoiceStore:
             new_seq = max(row[4], seq) if isinstance(seq, int) else row[4]
             new_status = row[0] if row[0] == "paid" else status
             self._db.execute(
-                "UPDATE invoices SET status = ?, seq = ? WHERE id = ?",
-                (new_status, new_seq, invoice_id),
+                "UPDATE invoices SET status = ?, seq = ?, updated_at = ? WHERE id = ?",
+                (new_status, new_seq, time.time(), invoice_id),
             )
+
+    def prune(self, max_age_secs: float, *, now: float | None = None) -> int:
+        """Forget invoices untouched for ``max_age_secs``, and their events.
+
+        Nothing in an invoice identifies a person, but there is no reason to keep
+        old ones: fewer records means less to leak. Returns how many were removed.
+        """
+        cutoff = (time.time() if now is None else now) - max_age_secs
+        with self._lock, self._db:
+            old = [
+                row[0]
+                for row in self._db.execute(
+                    "SELECT id FROM invoices WHERE updated_at < ?", (cutoff,)
+                )
+            ]
+            for invoice_id in old:
+                self._db.execute("DELETE FROM events WHERE invoice_id = ?", (invoice_id,))
+                self._db.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+        return len(old)

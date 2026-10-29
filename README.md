@@ -326,6 +326,33 @@ it uses a public lightwalletd server and does not verify proof-of-work.
 If the site skips `/pay`, your browser may still hold an invoice from an earlier run that
 the saved database remembers as paid. Use a private window or clear cookies for localhost.
 
+## Let other people try it (temporary public address, test only)
+
+`scripts/go-public.ps1` puts the Compose stack on a temporary public https address
+through a free Cloudflare quick tunnel, so someone else can try the age check from their
+own phone. Test credentials and testnet coins only.
+
+1. Install cloudflared once: `winget install --id Cloudflare.cloudflared -e`, then open a
+   new PowerShell window.
+2. With the stack running (`docker compose -f docker-compose.yml -f docker-compose.fork.yml up -d`):
+
+   ```
+   powershell -ExecutionPolicy Bypass -File .\scripts\go-public.ps1
+   ```
+
+   It prints an address like `https://some-random-words.trycloudflare.com/verify`. It
+   writes that address into the verifier's `expected_origin`, turns on secure cookies and
+   `TRUST_PROXY` in `.env`, and restarts the site and verifier.
+3. To stop: `powershell -ExecutionPolicy Bypass -File .\scripts\go-public.ps1 -Stop`.
+   Everything goes back to `http://localhost:5000`.
+
+The address changes every time the tunnel starts, and the site is only up while your
+laptop is on. Cloudflare sees visitors' IP addresses and which pages they open; the site
+itself keeps a visitor's address in memory for one minute, for rate limiting, and writes
+no access log. `TRUST_PROXY=1` makes the site read the visitor's address from the
+tunnel's `X-Forwarded-For` header; only use it when the site is reachable through that
+one proxy (Compose binds it to 127.0.0.1, so it is).
+
 ## Known problems and open questions
 
 - **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit

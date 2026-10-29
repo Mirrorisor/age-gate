@@ -38,6 +38,18 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE") == "1",
     MAX_CONTENT_LENGTH=64 * 1024,  # the default for every route but the proof upload
 )
+# Behind a tunnel or reverse proxy every request arrives from the proxy, so the rate
+# limiter would count all visitors as one. TRUST_PROXY=1 reads the visitor's address
+# from the proxy's X-Forwarded-For header instead. Only set it when the site is reachable
+# through that one proxy and nothing else, or visitors could fake the header.
+def trust_one_proxy(flask_app):
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    flask_app.wsgi_app = ProxyFix(flask_app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+
+if os.environ.get("TRUST_PROXY") == "1":
+    trust_one_proxy(app)
 # The wallet's zero-knowledge proof is hundreds of kilobytes, so /api/finish gets more room.
 PROOF_UPLOAD_LIMIT = 4 * 1024 * 1024
 verifier = AgeVerifier(VERIFIER)

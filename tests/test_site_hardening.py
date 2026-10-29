@@ -126,3 +126,19 @@ def test_a_configured_secret_key_is_used_and_the_placeholder_is_not():
     assert run_site(code, {"SECRET_KEY": "r" * 40}).stdout.strip() == "r" * 40
     placeholder = run_site(code, {"SECRET_KEY": "change-me-later"}).stdout.strip()
     assert placeholder != "change-me-later"
+
+
+def test_behind_a_trusted_proxy_the_visitor_address_comes_from_the_header():
+    from flask import Flask, request
+
+    demo = Flask(__name__)
+
+    @demo.route("/who")
+    def who():
+        return request.remote_addr
+
+    client = demo.test_client()
+    headers = {"X-Forwarded-For": "203.0.113.7"}
+    assert client.get("/who", headers=headers).get_data(as_text=True) == "127.0.0.1"
+    site.trust_one_proxy(demo)
+    assert client.get("/who", headers=headers).get_data(as_text=True) == "203.0.113.7"

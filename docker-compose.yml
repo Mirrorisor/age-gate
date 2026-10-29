@@ -35,7 +35,11 @@ services:
       - sitedata:/data
     environment:
       VERIFIER_URL: http://verifier:8000
-      SITE_ORIGIN: http://localhost:5000
+      SITE_ORIGIN: ${SITE_ORIGIN:-http://localhost:5000}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-30}
+      INVOICE_RETENTION_DAYS: ${INVOICE_RETENTION_DAYS:-30}
       SECRET_KEY: ${SECRET_KEY:?Create a .env file with SECRET_KEY (see .env.example)}
       PAYMENT_GATE: ${PAYMENT_GATE:-0}
       ZC_URL: ${ZC_URL:-http://fakepay:8080}

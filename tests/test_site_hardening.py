@@ -83,7 +83,12 @@ def test_oversized_webhook_body_is_refused():
     assert response.status_code == 413
 
 
-def test_a_real_sized_proof_upload_is_accepted_but_a_huge_one_is_not():
+def test_a_real_sized_proof_upload_is_accepted_but_a_huge_one_is_not(monkeypatch):
+    # A reachable verifier would finish the first upload and clear the session, so make it fail.
+    def unreachable(sid, response):
+        raise site.VerifierError("down")
+
+    monkeypatch.setattr(site.verifier, "finish", unreachable)
     client = site.app.test_client()
     with client.session_transaction() as s:
         s["av_session"] = "abc"

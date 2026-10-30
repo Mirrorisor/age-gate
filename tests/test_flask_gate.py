@@ -109,7 +109,12 @@ def test_a_session_can_only_be_finished_once():
 
 
 @pytest.mark.parametrize(
-    "bad", ["//evil.example/x", "https://evil.example/x", "/\\evil.example", "evil", "/a\nb"]
+    "bad",
+    [
+        "//evil.example/x", "https://evil.example/x", "/\\evil.example", "evil", "/a\nb",
+        # Browsers drop tabs and newlines and read "\" as "/", so these would reach another site.
+        "/\t/evil.example", "/\r/evil.example", "/a/\\/evil.example", "/x\x7f", "/\x00//evil",
+    ],
 )
 def test_the_gate_never_redirects_to_another_site(bad):
     app, gate = make_site(default_next="/home")
@@ -118,6 +123,12 @@ def test_the_gate_never_redirects_to_another_site(bad):
     with client.session_transaction() as s:
         s[gate._pending_key] = bad
     assert client.post("/age/finish", json={"response": "p"}).get_json()["next"] == "/home"
+
+
+def test_ordinary_paths_with_queries_are_still_allowed():
+    gate = make_site(default_next="/home")[1]
+    for good in ("/members", "/members?tab=2&q=a%20b", "/a/b-c_d.e"):
+        assert gate._safe_next(good) == good
 
 
 def test_the_page_has_no_inline_script_or_handler():

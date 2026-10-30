@@ -102,13 +102,18 @@ class Gate:
         return wrapper
 
     def _safe_next(self, value):
-        """Only ever redirect to a path on this site, never to another site."""
+        """Only ever redirect to a path on this site, never to another site.
+
+        Browsers drop tabs and newlines from URLs and treat a backslash like a slash, so
+        "/\t/evil.example" or "/\\evil.example" would lead to another site: a target with any
+        control character or backslash is refused, not just one starting with "//".
+        """
         if (
             isinstance(value, str)
             and value.startswith("/")
-            and not value.startswith(("//", "/\\"))
-            and "\n" not in value
-            and "\r" not in value
+            and not value.startswith("//")
+            and "\\" not in value
+            and not any(ord(c) < 0x20 or ord(c) == 0x7F for c in value)
         ):
             return value
         return self.default_next

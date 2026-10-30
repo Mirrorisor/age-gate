@@ -434,7 +434,9 @@ Both age checks come as drop-in Flask blueprints: `AgeGate` (phone wallet) and `
 ## Threat model
 
 What the system protects, how far each part is trusted, and the known gaps:
-[docs/THREAT-MODEL.md](docs/THREAT-MODEL.md).
+[docs/THREAT-MODEL.md](docs/THREAT-MODEL.md). An internal self-review against it, with every
+attack tried and what it found: [docs/SELF-REVIEW.md](docs/SELF-REVIEW.md) (not an independent
+audit).
 
 ## Write-up
 

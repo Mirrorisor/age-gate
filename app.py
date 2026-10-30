@@ -158,14 +158,17 @@ def throttle():
             return too_many()
 
 
+def with_nonce(template):
+    """A page's own markup with this response's script nonce written into its script tags."""
+    return template.replace("{nonce}", g.nonce)
+
+
 @app.after_request
 def add_security_headers(response):
     nonce = getattr(g, "nonce", "")
-    # The two inline scripts in this file get the per-request nonce the policy allows.
-    if response.mimetype == "text/html" and not response.direct_passthrough:
-        body = response.get_data(as_text=True)
-        if "<script>" in body:
-            response.set_data(body.replace("<script>", '<script nonce="' + nonce + '">'))
+    # Only the site's own scripts carry the nonce: each page writes it into its own script
+    # tags (with_nonce). Nothing here rewrites the output, so markup that ever reached a page
+    # some other way would get no nonce, and the policy would block it.
     # The passport page talks to the ZKPassport app through ZKPassport's WebSocket relay,
     # so only that page may open WebSocket connections to other hosts.
     connect = "'self' wss:" if request.path == "/passport" else "'self'"
@@ -200,7 +203,7 @@ PAGE = """
 <p>Your wallet will prove you are over 18 without sharing your birthdate.</p>
 <button id="go">Verify with my wallet</button>
 <p id="msg"></p>
-<script>
+<script nonce="{nonce}">
 async function go() {
   const msg = document.getElementById('msg');
   try {
@@ -247,7 +250,7 @@ def verify():
         extra += '<hr><p><a href="/passport">Or use your passport (ZKPassport app)</a></p>'
     if DEMO:
         extra += '<hr><p><a href="/demo-verify">Demo mode: use the fake test wallet</a></p>'
-    return PAGE + extra
+    return with_nonce(PAGE) + extra
 
 
 @app.route("/api/start", methods=["POST"])
@@ -417,7 +420,7 @@ def demo_verify():
 
 PAY_TAIL = """
 <p id="status">Waiting for payment...</p>
-<script>
+<script nonce="{nonce}">
 async function poll() {
   try {
     const r = await fetch('/pay/status');
@@ -468,7 +471,7 @@ def pay():
         + link
         + "<p>Pay from a shielded balance. A payment from a transparent balance puts "
         "its time and amount on the public chain.</p>"
-        + PAY_TAIL
+        + with_nonce(PAY_TAIL)
     )
 
 

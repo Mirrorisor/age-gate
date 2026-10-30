@@ -12,7 +12,8 @@ reviewer can check, not just a promise. The gaps it starts from are in
   replay and a one-command end-to-end check (`scripts/e2e.ps1`).
 - An optional shielded Zcash payment step, tested on testnet with a real wallet.
 - A privacy audit in the test suite that fails if the site keeps more than `/privacy` says.
-- Dependencies pinned, CI building every part, a written threat model.
+- Dependencies pinned, CI building every part, a written threat model, and an internal
+  self-review against it (38 attacks on the running stack, three low findings fixed): [SELF-REVIEW.md](SELF-REVIEW.md).
 - Shared state: invoices, used passport scopes and rate limits are kept in SQLite files, so they
   survive a restart and are shared by several workers (checked live with two gunicorn workers:
   exactly 30 of 35 requests got through, and the count survived a restart). Rate-limit rows

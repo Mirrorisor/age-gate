@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- `docs/SELF-REVIEW.md`: an internal self-review, 38 attacks against the running stack. Fixes: the CSP nonce goes only into the site's own scripts; the gates refuse control characters and backslashes in redirect targets; the passport service refuses proof sets with repeated or missing pieces.
 - `docs/CREDENTIAL-SIZE.md` and `scripts/measure_mso_limit.py`: why larger credentials fail (a 2,533-byte MSO, about 62 fields), and a C++ prover crash on nested fields. Corrects the README, which blamed portraits.
 - `docs/VERIFIER-MAINTENANCE.md`: the routine for keeping the verifier fork safe, and its first run. CI now audits the site's and the passport service's packages weekly.
 - `agecheck.flask_passport.PassportGate`: the passport check as a drop-in Flask blueprint, sharing its pass with `AgeGate`; `examples/passport_site.py` offers both. The scope record and service client moved to `agecheck.passport`, which the site now uses too.

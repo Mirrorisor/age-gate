@@ -31,6 +31,7 @@ export async function checkOver18(
 ): Promise<boolean> {
   if (!config.scope.startsWith(SCOPE_PREFIX) || config.scope.length > 100) return false
   if (!Array.isArray(proofs) || proofs.length === 0 || !isRecord(queryResult)) return false
+  if (!isWellFormedSet(proofs)) return false
   const age = queryResult.age
   if (!isRecord(age) || !isRecord(age.gte)) return false
   if (age.gte.expected !== MIN_AGE || age.gte.result !== true) return false
@@ -52,6 +53,24 @@ export async function checkOver18(
   } catch {
     return false
   }
+}
+
+/**
+ * Each proof in a set says its place (index) and the set's size (total). The SDK accepts a set
+ * with a piece repeated, which proves nothing extra but is not what the app sent, so refuse
+ * anything but pieces 0..total-1, each once, with total the set's real size.
+ */
+function isWellFormedSet(proofs: unknown[]): boolean {
+  const seen = new Set<number>()
+  for (const proof of proofs) {
+    if (!isRecord(proof) || proof.total !== proofs.length) return false
+    const index = proof.index
+    if (!Number.isInteger(index) || index < 0 || index >= proofs.length || seen.has(index)) {
+      return false
+    }
+    seen.add(index)
+  }
+  return true
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

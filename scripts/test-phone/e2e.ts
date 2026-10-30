@@ -83,6 +83,10 @@ function check(name: string, passed: boolean, detail: string) {
 const adultVisit = await openVisit()
 const adult = await prove(adultVisit, "1995-11-12")
 const adultProofs = adult.proofs
+// For docs/SELF-REVIEW.md: keep a real, valid mock-passport proof to tamper with later.
+if (adultProofs && process.env.PROOF_OUT) {
+  await Bun.write(process.env.PROOF_OUT, JSON.stringify({ ...adultProofs, scope: adultVisit.scope }))
+}
 if (!adultProofs) {
   check("adult gets in", false, adult.why)
 } else {

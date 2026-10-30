@@ -48,6 +48,11 @@ routes in `app.py`.
 - Live, with a mock passport: see [passport/README.md](../passport/README.md) and
   [scripts/test-phone](../scripts/test-phone/README.md). Dev mode only.
 
+## Already checked
+
+[SELF-REVIEW.md](SELF-REVIEW.md) lists every attack we tried on the passport route, with a real
+proof: other domain, other scope, changed bytes, missing or repeated pieces, dev mode off.
+
 ## Known limits
 
 - Tested only in dev mode with mock passports.

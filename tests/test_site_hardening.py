@@ -22,6 +22,21 @@ def test_pages_carry_security_headers_and_a_matching_nonce():
     assert response.headers["Referrer-Policy"] == "no-referrer"
 
 
+def test_markup_that_reaches_a_page_another_way_gets_no_nonce():
+    # The nonce goes only into the site's own script tags. A <script> that ever got into a
+    # response some other way must not be handed one, or the policy would let it run.
+    from flask import Response
+
+    with site.app.test_request_context("/verify"):
+        site.app.preprocess_request()
+        injected = Response("<p>hi</p><script>alert(1)</script>", mimetype="text/html")
+        out = site.add_security_headers(injected)
+        nonce = out.headers["Content-Security-Policy"].split("'nonce-")[1].split("'")[0]
+        body = out.get_data(as_text=True)
+    assert "<script>alert(1)</script>" in body
+    assert nonce not in body
+
+
 def test_the_verify_page_has_no_inline_event_handlers():
     page = site.app.test_client().get("/verify").get_data(as_text=True)
     assert "onclick" not in page

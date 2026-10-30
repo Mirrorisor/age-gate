@@ -36,6 +36,16 @@ Since then I've kept improving my fork, and sent the trust-list change upstream 
 
 On my own site I wrote a test that checks the privacy page tells the truth: it runs a whole age check and payment and fails if the session cookie ever holds anything beyond a session id, a yes flag and an invoice number, if the wallet's proof is echoed back, if a page loads anything from another site, or if the site sets a cookie just for visiting. I also pulled the age check out into a small reusable piece for Flask sites, with its own page of instructions, so you can add it to a site in a few lines.
 My pull request and the issue: https://github.com/pipe23-org/zk-age-verifier/pulls?q=author%3AMirrorisor
+## Update: passports too
+
+I added a second way in: proving you are 18 or over with a passport, through the ZKPassport app. The site shows a QR code (a link on a phone), the app reads the passport chip and makes the proof, and a small service on my side checks it. It never goes to ZKPassport's own verifier, the site rebuilds the question itself (so a visitor can't swap it for an easier one), and it throws away the per-site identifier the proof carries, so visits can't be linked. The site learns one thing: this person is 18 or over.
+
+I tested it end to end without a real passport, using a stand-in for the app that proves from a mock passport of a made-up country. A mock adult got through the age check, paid a shielded testnet payment and reached the members page. A mock child couldn't even make the proof.
+
+Reviewing my own code, I found a hole: nothing tied a proof to the visit that asked for it. Anyone who got hold of a valid "over 18" proof could have handed it to the site again from another browser. The fix is small. Every visit to the passport page now gets its own random scope, the proof is made for that scope, and the site accepts it once. I tested it by capturing a real proof and sending it back: in the same visit it was refused because the scope was used up, and in a new visit the checker said the proof used a different scope than the one expected.
+
+Two honest limits. This is still mock passports only, and I left it that way on purpose: ZKPassport says it has not had an external audit, and neither has my side. And while writing the tests I found one of mine that only passed when the verifier was switched off, because a running verifier finished the first upload and cleared the session before the second one was checked. It was a bad test, not a bad site, but I would not have found it without running everything on my own machine.
+
 ## What this is not
 
 It isn't secure enough for real users or real money. The verifier calls itself pre-alpha. ZecCheckout is a prototype that uses a public server and doesn't verify proof-of-work, so a hostile server could make an unpaid invoice look paid. For anything real you'd want your own node, real issuers, a proper database, and a review by someone who does this for a living. I also haven't tested any real government-issued credential, so I can't say yet which wallets and issuers will exist for Australians.

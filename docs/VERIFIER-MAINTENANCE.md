@@ -26,7 +26,8 @@ In a checkout of the fork:
 4. **Publish.** Push to the fork's `main`; its "Fork image" workflow publishes
    `ghcr.io/mirrorisor/zk-age-verifier:fork`.
 5. **Pin.** In this repository, pull the new image, put its digest in `docker-compose.yml`, run
-   the test suite and `scripts/e2e.ps1`, and commit.
+   the test suite and `scripts/e2e.ps1`, check one real phone wallet (the Multipaz Test App's
+   Age Verification document) against it, and commit.
 6. **Log it** below: date, what changed, why.
 
 The site's own packages and the passport service's are audited by CI every week
@@ -50,3 +51,6 @@ The site's own packages and the passport service's are audited by CI every week
   workflow passed; `docker-compose.yml` now pins image `sha256:57a33605...`. Checked: the
   verifier reports ref 623ce86 with anyio 4.15.1 and certifi 2026.10.23, `scripts/zkdemo.py`
   proves and verifies in the new image and rejects a false claim, and the site's 168 tests pass.
+- Real phone, 2026-10-30 23:22 UTC: the Multipaz Test App's Age Verification document passed
+  against the patched fork (`verify_succeeded` in 575 ms), then a shielded testnet payment
+  through our own node was detected and marked paid.

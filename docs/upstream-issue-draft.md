@@ -24,7 +24,7 @@ The page passes it to `request()`, the server remembers it in the session, and t
 Questions:
 
 1. Is this a supported use of `scope`, or could a later release change how scope is checked or hashed?
-   Is there a length or character limit I should keep to? (I used about 28 characters and did not
+   Is there a length or character limit I should keep to? (I used 34 characters and did not
    hit one.)
 2. If it is fine, could the docs say so? Anyone who does not store the identifier has no other way to
    tie a proof to one visit, and the README does not mention it.

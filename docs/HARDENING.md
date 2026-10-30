@@ -10,7 +10,7 @@ on test certificates; none of this makes it fit for real users.
 - **Secret key.** The cookie is signed with `SECRET_KEY`; anyone who knows the key can forge
   a "passed the age check" cookie. With no key set, the site makes a random one for each run
   (everyone is logged out on restart). The payment step still insists on a real key.
-- **Rate limits.** `/api/start`, `/api/finish`, `/pay` and `/demo-verify` allow
+- **Rate limits.** `/api/start`, `/api/finish`, `/api/passport/finish`, `/pay` and `/demo-verify` allow
   `RATE_LIMIT_PER_MIN` requests per minute per address (default 30, `0` turns it off).
   Counts live in memory, so the container runs one worker process. Behind a reverse proxy
   every visitor may share the proxy's address.

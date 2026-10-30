@@ -34,3 +34,23 @@ jobs:
 
       - name: Build the package
         run: python -m build
+
+  passport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs from bun.lock (frozen) and bundles client.ts, so a broken lockfile or a
+      # client that no longer compiles fails here.
+      - name: Build the passport service
+        run: docker build passport
+
+  site-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the site image from the pinned requirements
+        run: docker build -f Dockerfile.site .

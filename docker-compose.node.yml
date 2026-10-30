@@ -7,7 +7,7 @@
 
 services:
   zebra:
-    image: zfnd/zebra:7.0.0
+    image: zfnd/zebra:7.0.0@sha256:a70d2be8ffef3a4b6e37355724e36a0e6c1838e46baa28bfb216739f00cf2d34
     restart: unless-stopped
     environment:
       ZEBRA_NETWORK__NETWORK: Testnet

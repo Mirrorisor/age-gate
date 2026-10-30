@@ -14,7 +14,8 @@
 services:
   verifier:
     restart: unless-stopped
-    image: ghcr.io/pipe23-org/zk-age-verifier:latest
+    # Pinned to the build tested on 2026-10-30. To update: pull :latest, test, then copy its digest here.
+    image: ghcr.io/pipe23-org/zk-age-verifier:latest@sha256:9bc87f30681796c9586459cf08a1ceb7643284c7525a97e8956bce7299e3d061
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -88,7 +89,7 @@ services:
   zeccheckout:
     restart: unless-stopped
     profiles: ["zec"]
-    image: ghcr.io/samizdatproject/zeccheckout:latest
+    image: ghcr.io/samizdatproject/zeccheckout:latest@sha256:3945c75cb4b0eb43a52e2dab819a946e201eeec3ec4a14a2de4ee178790612e3
     platform: linux/amd64
     ports:
       - "127.0.0.1:8080:10000"

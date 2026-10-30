@@ -1,10 +1,13 @@
-FROM python:3.13-slim
+# Pinned by digest (tested 2026-10-30) so a rebuild cannot change underneath us.
+FROM python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
 
 WORKDIR /app
 
+COPY requirements-site.txt ./
+RUN pip install --no-cache-dir -r requirements-site.txt
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-RUN pip install --no-cache-dir . flask gunicorn
+RUN pip install --no-cache-dir --no-deps .
 
 COPY app.py ./
 

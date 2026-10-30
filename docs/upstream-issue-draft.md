@@ -39,10 +39,11 @@ into the circuit.
 
 - Verified by me: scope mismatch is refused (live, passport service log); same-session reuse is refused
   by my own site, not by the SDK.
-- Taken from the SDK README through a summarising fetch tool, so re-read the README yourself: that
-  scope "ties the unique identifier to a use case", and that servers should recreate the query.
+- Checked against the SDK README (packages/zkpassport-sdk/README.md, main branch, 2026-10-30): scope is
+  described only as tying the unique identifier to a use case (default: your domain only); the
+  "Verifying the proofs" section says to store the identifier with a uniqueness constraint; the README
+  does not mention a length limit for scope, or any proof expiry or freshness. Re-check the README at
+  posting time, and compare with the version you run (0.19.2).
 - Not verified: how the proof's date window works, how long a scope may be, whether the pre-fix replay
   would really have been accepted (I never ran that case).
-- The README is the SDK package one, packages/zkpassport-sdk/README.md. Check the current version, as
-  mine is 0.19.2.
 - Posting publicly is your call and happens under your GitHub account.

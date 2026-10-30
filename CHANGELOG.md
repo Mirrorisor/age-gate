@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- Pages fit phones: every page gets a viewport tag, a title and one stylesheet served from the site (`static/site.css`, light and dark), allowed by `style-src 'self'` with no inline styles.
 - `docker-compose.https.yml`, `Caddyfile` and `docs/HTTPS.md`: HTTPS on a real domain with Caddy (automatic certificates, HSTS, secure cookies, no access log, the site reachable only through the proxy).
 - CI runs the passport end-to-end check (`.github/workflows/e2e.yml`) on every push to main and weekly, against the site and the reusable `PassportGate`.
 - Payments checked against our own node (roadmap M2): Tested 2026-10-30: with `ZC_LIGHTWALLETD` pointing at our node, a 0.001 TAZ shielded payment from Zingo was detected and marked paid, and the site recorded it, with no public chain server in the path.

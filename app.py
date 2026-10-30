@@ -163,17 +163,34 @@ def with_nonce(template):
     return template.replace("{nonce}", g.nonce)
 
 
+# Every page is a fragment of markup; this fixed shell makes it a document that fits a phone
+# screen and uses the site's one stylesheet (static/site.css). The shell is the same for every
+# response and carries no nonce, so it gives nothing extra to any markup inside it.
+_SHELL_HEAD = (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    "<title>Age check</title>"
+    '<link rel="stylesheet" href="/static/site.css"></head><body>'
+)
+_SHELL_TAIL = "</body></html>"
+
+
 @app.after_request
 def add_security_headers(response):
     nonce = getattr(g, "nonce", "")
     # Only the site's own scripts carry the nonce: each page writes it into its own script
-    # tags (with_nonce). Nothing here rewrites the output, so markup that ever reached a page
-    # some other way would get no nonce, and the policy would block it.
+    # tags (with_nonce). Nothing here adds a nonce to the output, so markup that ever reached a
+    # page some other way would get none, and the policy would block it.
+    if response.mimetype == "text/html" and not response.direct_passthrough:
+        body = response.get_data(as_text=True)
+        if not body.lstrip().lower().startswith("<!doctype"):
+            response.set_data(_SHELL_HEAD + body + _SHELL_TAIL)
     # The passport page talks to the ZKPassport app through ZKPassport's WebSocket relay,
     # so only that page may open WebSocket connections to other hosts.
     connect = "'self' wss:" if request.path == "/passport" else "'self'"
     response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; script-src 'nonce-" + nonce + "'; connect-src " + connect + "; "
+        "default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'self'; "
+        "connect-src " + connect + "; "
         "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"

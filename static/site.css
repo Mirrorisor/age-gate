@@ -1,0 +1,64 @@
+/* The age-gate site's only stylesheet. Served from this site, so the Content-Security-Policy
+   allows it with style-src 'self'; there are no inline styles anywhere. */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1c1c1e;
+  --muted: #5a5a60;
+  --line: #d9d9de;
+  --accent: #b5651d;
+  --accent-fg: #ffffff;
+  --code-bg: #f2f2f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141416;
+    --fg: #ececf0;
+    --muted: #a3a3ab;
+    --line: #34343a;
+    --accent: #f0a04b;
+    --accent-fg: #141416;
+    --code-bg: #222226;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  max-width: 40rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1.0625rem/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow-wrap: break-word;
+}
+h1 { font-size: 1.6rem; line-height: 1.25; margin: 0.5rem 0 1rem; }
+p, li { margin: 0 0 0.9rem; }
+ul { padding-left: 1.25rem; }
+a { color: var(--accent); text-underline-offset: 0.15em; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 1.5rem 0; }
+button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+button:disabled { opacity: 0.55; cursor: default; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+code, pre, textarea {
+  font: 0.9rem/1.45 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  background: var(--code-bg);
+  border-radius: 0.375rem;
+}
+code { padding: 0.1rem 0.3rem; overflow-wrap: anywhere; }
+pre { padding: 0.75rem; overflow-x: auto; white-space: pre-wrap; }
+textarea { width: 100%; padding: 0.5rem; color: var(--fg); border: 1px solid var(--line); }
+details { margin: 1rem 0; color: var(--muted); }
+svg { max-width: 100%; height: auto; }
+#passport-qr svg { width: 15rem; background: #fff; padding: 0.5rem; border-radius: 0.5rem; }
+#agecheck-msg, #passport-msg { color: var(--muted); min-height: 1.5em; }

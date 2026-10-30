@@ -123,6 +123,11 @@ result that is not an object, garbage proof objects: all refused with `ok: false
   in the fork anyway.
 - **The verifier has an unauthenticated `/debug/transcript` route.** It is published only on
   127.0.0.1, so only this machine can reach it.
+- **ZKPassport's SDK tries to call home, and the policy blocks it.** On Start, the browser
+  side tries to fetch `dashboard-api.zkpassport.id/public/project?domain=<this site>`. The
+  passport page's Content-Security-Policy (`connect-src 'self' wss:`) refuses it, and the check
+  works without it (the QR appears; the end-to-end checks pass). Keep it blocked: allowing it
+  would tell ZKPassport which site is running a check. Seen 2026-10-31.
 - **The passport route depends on ZKPassport's relay.** If it drops a message, the check times out;
   it does not let anyone in.
 - **Payments trust a public lightwalletd unless `ZC_LIGHTWALLETD` is set.** Since this review a

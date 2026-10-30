@@ -188,3 +188,24 @@ def test_behind_a_trusted_proxy_the_visitor_address_comes_from_the_header():
     assert client.get("/who", headers=headers).get_data(as_text=True) == "127.0.0.1"
     site.trust_one_proxy(demo)
     assert client.get("/who", headers=headers).get_data(as_text=True) == "203.0.113.7"
+
+
+def test_every_page_is_a_phone_ready_document_with_the_site_stylesheet():
+    client = site.app.test_client()
+    for path in ("/", "/verify", "/privacy"):
+        page = client.get(path).get_data(as_text=True)
+        assert page.startswith("<!doctype html>"), path
+        assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in page, path
+        assert '<link rel="stylesheet" href="/static/site.css">' in page, path
+        assert page.count("<!doctype html>") == 1, path
+        assert " style=" not in page and "<style" not in page, path  # the policy allows no inline styles
+
+
+def test_the_stylesheet_is_served_from_this_site_and_only_it_is_allowed():
+    client = site.app.test_client()
+    css = client.get("/static/site.css")
+    assert css.status_code == 200 and css.mimetype == "text/css"
+    assert not css.get_data(as_text=True).lstrip().startswith("<!doctype")  # not wrapped
+    csp = client.get("/verify").headers["Content-Security-Policy"]
+    assert "style-src 'self';" in csp
+    assert "unsafe-inline" not in csp

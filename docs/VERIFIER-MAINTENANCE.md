@@ -54,3 +54,7 @@ The site's own packages and the passport service's are audited by CI every week
 - Real phone, 2026-10-30 23:22 UTC: the Multipaz Test App's Age Verification document passed
   against the patched fork (`verify_succeeded` in 575 ms), then a shielded testnet payment
   through our own node was detected and marked paid.
+- Second real wallet, 2026-10-30 23:41 UTC: the EU Age Verification reference app's credential
+  (EU demo issuer) also passed against fork 623ce86 (`verify_succeeded` in 569 ms). Its log shows
+  the expected `key_usage_der_fallback` warning: the EU demo root's issuer-alternative-name
+  extension does not parse, and the verifier's DER fallback (upstream #33) reads its keyUsage.

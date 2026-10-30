@@ -36,6 +36,8 @@ Since then I've kept improving my fork, and sent the trust-list change upstream 
 
 On my own site I wrote a test that checks the privacy page tells the truth: it runs a whole age check and payment and fails if the session cookie ever holds anything beyond a session id, a yes flag and an invoice number, if the wallet's proof is echoed back, if a page loads anything from another site, or if the site sets a cookie just for visiting. I also pulled the age check out into a small reusable piece for Flask sites, with its own page of instructions, so you can add it to a site in a few lines.
 My pull request and the issue: https://github.com/pipe23-org/zk-age-verifier/pulls?q=author%3AMirrorisor
+
+So far nobody has answered them, and the original project shows little activity beyond automatic dependency updates. So I stopped treating the fork as a stopgap: the age gate now runs it by default, and keeping it up to date is part of the plan. That is a real cost, since security fixes from the original project will only reach it if I bring them over, but it is better than depending on code nobody is looking after.
 ## Update: passports too
 
 I added a second way in: proving you are 18 or over with a passport, through the ZKPassport app. The site shows a QR code (a link on a phone), the app reads the passport chip and makes the proof, and a small service on my side checks it. It never goes to ZKPassport's own verifier, the site rebuilds the question itself (so a visitor can't swap it for an easier one), and it throws away the per-site identifier the proof carries, so visits can't be linked. The site learns one thing: this person is 18 or over.

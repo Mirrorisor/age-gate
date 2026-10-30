@@ -17,6 +17,9 @@ reviewer can check, not just a promise. The gaps it starts from are in
   survive a restart and are shared by several workers (checked live with two gunicorn workers:
   exactly 30 of 35 requests got through, and the count survived a restart). Rate-limit rows
   hold a keyed hash of the address, never the address.
+- A maintained fork of the verifier, with fixes found while building this (a log of which
+  certificate was refused, a safer trust-list loader, `--check-cert`), which the stack runs by
+  default.
 - Upstream contributions: a merged fix to the Multipaz test app
   ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126)), two open pull
   requests and an issue on the verifier
@@ -69,6 +72,19 @@ consenting testers.
 - **Deliverable:** the passport check packaged like the existing Flask age-check module, with
   instructions for adding both to an existing site.
 - **Done when:** a fresh Flask app gains the age gate by following the instructions, checked in CI.
+
+### M7. Keep the verifier maintained
+
+The site depends on the zk-age-verifier service. Upstream shows little activity and has not
+responded to the fixes offered to it, so this project runs and maintains its own fork
+(https://github.com/Mirrorisor/zk-age-verifier).
+
+- **Deliverable:** the fork kept current: upstream changes and security fixes brought over,
+  dependencies updated, its tests and published image passing, and a short note per release on
+  what changed and why.
+- **Done when:** for the funded period, every upstream release and security advisory has been
+  either merged into the fork or recorded as not applicable, and the stack is pinned to a fork
+  image built from that state.
 
 ## Not planned
 

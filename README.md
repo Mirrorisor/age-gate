@@ -79,7 +79,7 @@ The verifier refuses to start with no trusted issuers. Only list issuers you
 actually intend to trust.
 
 ```
-docker run --rm --name zkv -p 127.0.0.1:8000:8000 -v %CD%\verifier-config:/config:ro -e ZK_AGE_VERIFIER_CONFIG=/config/config.toml ghcr.io/pipe23-org/zk-age-verifier:latest
+docker run --rm --name zkv -p 127.0.0.1:8000:8000 -v %CD%\verifier-config:/config:ro -e ZK_AGE_VERIFIER_CONFIG=/config/config.toml ghcr.io/mirrorisor/zk-age-verifier:fork
 ```
 
 (PowerShell: use `${PWD}` in place of `%CD%`.)
@@ -94,7 +94,7 @@ claim is rejected. Run it inside the verifier's container, which already has the
 library and the proof circuit:
 
 ```
-docker run --rm -v %CD%\scripts:/demo --entrypoint /app/.venv/bin/python ghcr.io/pipe23-org/zk-age-verifier:latest /demo/zkdemo.py
+docker run --rm -v %CD%\scripts:/demo --entrypoint /app/.venv/bin/python ghcr.io/mirrorisor/zk-age-verifier:fork /demo/zkdemo.py
 ```
 
 `scripts/wallet_demo.py` goes further: it acts as a wallet against the *running*
@@ -102,7 +102,7 @@ verifier, including the response encryption. It relies on the verifier project's
 own test code (`tests/integration/presenter.py` and the test credentials), which
 is Apache-2.0 licensed and not copied into this repository. To use it:
 
-1. Download <https://github.com/pipe23-org/zk-age-verifier> as a ZIP and extract it.
+1. Download <https://github.com/Mirrorisor/zk-age-verifier> as a ZIP and extract it.
 2. Copy `tests\integration\credentials\test-anchor.pem` into `verifier-config\certs\`
    (and remove any other certificates there), then restart the verifier.
 3. Copy the extracted `tests` folder and the script into the running container, then run it:
@@ -338,7 +338,7 @@ own phone. Test credentials and testnet coins only.
 
 1. Install cloudflared once: `winget install --id Cloudflare.cloudflared -e`, then open a
    new PowerShell window.
-2. With the stack running (`docker compose -f docker-compose.yml -f docker-compose.fork.yml up -d`):
+2. With the stack running (`docker compose up -d`):
 
    ```
    powershell -ExecutionPolicy Bypass -File .\scripts\go-public.ps1
@@ -369,7 +369,7 @@ machine, never through ZKPassport's API. Details: [passport/README.md](passport/
 2. Start it with the rest of the stack:
 
    ```
-   docker compose -f docker-compose.yml -f docker-compose.fork.yml --profile passport up -d --build
+   docker compose --profile passport up -d --build
    ```
 
 3. Open `/passport` at the same address as `SITE_ORIGIN` (a proof made for `localhost`
@@ -446,8 +446,17 @@ optional passport route.
 This repository contains only glue code and scripts written while learning; none of
 the above is included in it.
 
-## Running the verifier from our fork
+## Which verifier this uses
 
-By default the stack uses upstream's published verifier image. To run the fork at https://github.com/Mirrorisor/zk-age-verifier instead (it logs which certificate was refused, issue #76):
+The stack runs our fork of the verifier, https://github.com/Mirrorisor/zk-age-verifier. It is
+upstream (pipe23-org/zk-age-verifier) plus fixes found while building this: it logs which
+certificate an `untrusted-issuer` refusal was about, loads only a trust list's service
+certificates and can pin the list's hash, explains a refusal with `--check-cert`, and pins the
+clock in a test whose certificate expired. Those fixes were offered upstream (issue #76, pull
+requests #77 and #78) with no response so far, and upstream shows little activity, so the fork
+is what this project maintains and tests. The cost: upstream's security fixes do not arrive by
+themselves; they have to be brought over by hand.
 
-    docker compose --profile zec -f docker-compose.yml -f docker-compose.fork.yml up --build
+To compare with upstream's image:
+
+    docker compose -f docker-compose.yml -f docker-compose.upstream.yml up -d

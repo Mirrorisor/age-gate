@@ -1,9 +1,0 @@
-# Runs the verifier from our fork's published image (built by the fork's "Fork image"
-# workflow on every push to main) instead of upstream's image.
-# Use:  docker compose -f docker-compose.yml -f docker-compose.fork.yml up -d
-# Update to a newer fork build: docker pull ghcr.io/mirrorisor/zk-age-verifier:fork, test it,
-# then put its digest below (docker image inspect --format '{{index .RepoDigests 0}}' ...).
-services:
-  verifier:
-    # Pinned to the fork build tested on 2026-10-30; after a new fork build, pull, test, update.
-    image: ghcr.io/mirrorisor/zk-age-verifier:fork@sha256:dd1a60b8550f9e084abb70b3070abd851816a3fb08940d4f067df4df1b1c6f1f

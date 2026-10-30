@@ -25,7 +25,7 @@ $logFile = Join-Path $env:TEMP "age-gate-tunnel.log"
 $pidFile = Join-Path $env:TEMP "age-gate-tunnel.pid"
 $localOrigin = "http://localhost:5000"
 $utf8 = New-Object System.Text.UTF8Encoding($false)  # no BOM: compose and TOML dislike it
-$compose = @("compose", "-f", "docker-compose.yml", "-f", "docker-compose.fork.yml")
+$compose = @("compose")
 
 if (-not (Test-Path $envFile)) { throw "No .env file in $repo. Copy .env.example to .env first." }
 

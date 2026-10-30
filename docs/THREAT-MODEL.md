@@ -59,6 +59,8 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
   one machine can share them; several machines cannot. Fine for a demo, not for traffic.
 - **Shared cookies:** anyone holding a visitor's "passed" cookie gets in. Nothing session-based
   can stop a visitor handing their cookie to someone else.
+- **A verifier we maintain ourselves:** upstream is quiet, so security fixes reach our fork
+  only when we bring them over.
 - **No external review yet** of the site, the passport service, the verifier (pre-alpha by its
   own description) or ZecCheckout (a prototype). ZKPassport states it has not been audited.
 - **Real credentials untested:** real passports, and government-issued mdocs.

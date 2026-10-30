@@ -1,0 +1,7 @@
+# Runs upstream's verifier image instead of our fork, for comparison only. The fork is the
+# default because upstream has not responded to its fixes (see README, "Which verifier").
+# Use:  docker compose -f docker-compose.yml -f docker-compose.upstream.yml up -d
+services:
+  verifier:
+    # The upstream build tested on 2026-10-30.
+    image: ghcr.io/pipe23-org/zk-age-verifier:latest@sha256:9bc87f30681796c9586459cf08a1ceb7643284c7525a97e8956bce7299e3d061

@@ -35,7 +35,7 @@ Lets a visitor prove they are 18 or over with a passport or ID card through the
 Start it with the site:
 
 ```
-docker compose -f docker-compose.yml -f docker-compose.fork.yml --profile passport up -d --build
+docker compose --profile passport up -d --build
 ```
 
 and set `PASSPORT_URL=http://passport:8100` in `.env`. The site then shows "Or use your passport".

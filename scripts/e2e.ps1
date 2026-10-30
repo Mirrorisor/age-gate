@@ -8,7 +8,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
-docker compose -f docker-compose.yml -f docker-compose.fork.yml --profile passport up -d --build
+docker compose --profile passport up -d --build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $ready = $false

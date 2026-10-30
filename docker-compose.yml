@@ -50,6 +50,8 @@ services:
       ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}
       PRICE_ZEC: ${PRICE_ZEC:-0.001}
       INVOICE_DB: /data/invoices.db
+      # Passport checks already tried, so a restart cannot give a used one a second try.
+      PASSPORT_SCOPES_DB: /data/passport-scopes.db
 
   # Optional: prove age with a passport through the ZKPassport app (see passport/README.md).
   # Only starts with:  --profile passport   and needs PASSPORT_URL=http://passport:8100 in .env

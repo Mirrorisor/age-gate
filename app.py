@@ -2,6 +2,7 @@ import html
 import json
 import os
 import secrets
+import sqlite3
 import subprocess
 import threading
 import time
@@ -282,33 +283,41 @@ class UsedScopes:
     The session lives in the visitor's cookie, so taking the scope out of the session is not
     enough: a visitor who kept the old cookie could send it again. This records each scope as
     it is tried and refuses it after that. Entries older than a visit are dropped, since the
-    session's own timestamp refuses those anyway. In memory, so a restart forgets them (one
-    worker process, like the rate limiter).
+    session's own timestamp refuses those anyway.
+
+    With a file path the record lives in a SQLite file, so a restart forgets nothing and
+    processes sharing the file share the record. Without one (``None``) it lives in memory,
+    which is what the tests use.
     """
 
-    def __init__(self, keep_seconds):
+    def __init__(self, keep_seconds, path=None):
         self.keep_seconds = keep_seconds
-        self._used = {}
         self._lock = threading.Lock()
+        self._db = sqlite3.connect(path or ":memory:", check_same_thread=False, timeout=10)
+        with self._lock, self._db:
+            self._db.execute(
+                "CREATE TABLE IF NOT EXISTS used_scopes (scope TEXT PRIMARY KEY, used_at REAL)"
+            )
 
     def claim(self, scope):
         """True the first time a scope is claimed, False after that."""
         now = time.time()
-        with self._lock:
-            for old in [k for k, t in self._used.items() if now - t > self.keep_seconds]:
-                del self._used[old]
-            if scope in self._used:
-                return False
-            self._used[scope] = now
-            return True
+        with self._lock, self._db:
+            self._db.execute(
+                "DELETE FROM used_scopes WHERE used_at < ?", (now - self.keep_seconds,)
+            )
+            added = self._db.execute(
+                "INSERT OR IGNORE INTO used_scopes (scope, used_at) VALUES (?, ?)", (scope, now)
+            )
+            return added.rowcount == 1
 
     def release(self, scope):
         """Give a scope back when its try never happened (the check was unreachable)."""
-        with self._lock:
-            self._used.pop(scope, None)
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM used_scopes WHERE scope = ?", (scope,))
 
 
-used_scopes = UsedScopes(PASSPORT_VISIT_SECONDS)
+used_scopes = UsedScopes(PASSPORT_VISIT_SECONDS, os.environ.get("PASSPORT_SCOPES_DB") or None)
 
 
 def passport_check(proofs, result, domain, scope):

@@ -55,8 +55,8 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 
 - **T8:** payments rest on a public lightwalletd that ZecCheckout does not verify. The fix is
   to point ZecCheckout at a node we run.
-- **In-memory state:** rate limits and the used-scope record live in one process; a restart
-  forgets them (used scopes for up to 15 minutes).
+- **In-memory rate limits:** they live in one process, so a restart resets them and a second
+  worker would count separately. (The used-scope record is a SQLite file under Compose.)
 - **Single machine:** one worker, SQLite for invoices. Fine for a demo, not for traffic.
 - **Shared cookies:** anyone holding a visitor's "passed" cookie gets in. Nothing session-based
   can stop a visitor handing their cookie to someone else.

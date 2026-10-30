@@ -1,5 +1,7 @@
 """The optional passport route: page, client script proxy, and the finish step."""
 
+import time
+
 import pytest
 import requests
 
@@ -146,6 +148,23 @@ def test_an_outage_leaves_the_try_for_later(passport_on, monkeypatch):
     assert client.post("/api/passport/finish", json={}).status_code == 502
     monkeypatch.setattr(site, "passport_check", lambda *_: True)
     assert client.post("/api/passport/finish", json={}).get_json()["ok"] is True
+
+
+def test_used_scopes_survive_a_restart_when_kept_in_a_file(tmp_path):
+    path = str(tmp_path / "scopes.db")
+    assert site.UsedScopes(900, path).claim("age-over-18:a") is True
+    restarted = site.UsedScopes(900, path)
+    assert restarted.claim("age-over-18:a") is False
+    assert restarted.claim("age-over-18:b") is True
+
+
+def test_old_used_scopes_are_dropped(tmp_path):
+    scopes = site.UsedScopes(0, str(tmp_path / "scopes.db"))
+    assert scopes.claim("age-over-18:a") is True
+    time.sleep(0.01)
+    scopes.claim("age-over-18:b")  # claiming also clears entries older than the window
+    count = scopes._db.execute("SELECT COUNT(*) FROM used_scopes").fetchone()[0]
+    assert count == 1
 
 
 def test_a_visit_can_be_finished_only_once(passport_on, monkeypatch):

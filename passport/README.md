@@ -27,8 +27,9 @@ Lets a visitor prove they are 18 or over with a passport or ID card through the
   it after that, even if the visitor resends the session cookie from before (the session lives in
   the cookie, so removing the scope from it alone was not enough). A captured, valid proof is
   refused when sent again in the same visit (400) and in a later visit ("The proof uses a
-  different scope than the one expected"). `scripts/e2e.ps1` checks all of this in one go. The
-  record is kept in memory, so a restart forgets scopes tried in the last 15 minutes.
+  different scope than the one expected"). `scripts/e2e.ps1` checks all of this in one go. With
+  Compose the record is a SQLite file (`PASSPORT_SCOPES_DB`), so a restart forgets nothing;
+  without that setting it is kept in memory.
 - Not tested: real passports, non-dev mode.
 
 Start it with the site:

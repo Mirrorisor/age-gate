@@ -49,5 +49,6 @@ routes in `app.py`.
 ## Known limits
 
 - Tested only in dev mode with mock passports.
-- The used-scope record is in memory: a restart forgets scopes tried in the last 15 minutes.
+- The used-scope record is a SQLite file under Compose (`PASSPORT_SCOPES_DB`); run without it,
+  it is in memory and a restart forgets scopes tried in the last 15 minutes.
 - Neither ZKPassport (by its own statement) nor this service has had an external audit.

@@ -31,7 +31,8 @@ on test certificates; none of this makes it fit for real users.
   a valid cookie.
 - Rate limits are per address, not per person. They slow down abuse; they do not stop a
   determined one.
-- Run it behind https (a reverse proxy such as Caddy or traefik) before anyone real uses it.
+- Run it behind https before anyone real uses it. `docker-compose.https.yml` does that with Caddy
+  for a real domain: see [HTTPS.md](HTTPS.md).
 - The verifier it relies on is experimental; see the README's known problems.
 
 ## How the privacy claims are kept honest

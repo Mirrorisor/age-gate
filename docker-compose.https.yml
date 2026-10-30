@@ -1,0 +1,36 @@
+# HTTPS for a real domain: Caddy in front of the site. Use with the normal stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml --profile passport up -d
+#
+# Needs SITE_DOMAIN in .env (the bare host name, such as age.example.com), the domain's DNS
+# pointing at this machine, and ports 80 and 443 open to the internet. See docs/HTTPS.md.
+services:
+  caddy:
+    # Pinned by digest (tested 2026-10-31).
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    restart: unless-stopped
+    depends_on:
+      - site
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env (see docs/HTTPS.md)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+  site:
+    # Only Caddy reaches the site: no port on this machine either, so nothing can go around the
+    # proxy and fake the visitor address that TRUST_PROXY makes the site read.
+    ports: !reset []
+    environment:
+      SITE_ORIGIN: https://${SITE_DOMAIN}
+      SESSION_COOKIE_SECURE: "1"
+      TRUST_PROXY: "1"
+
+volumes:
+  caddydata:
+  caddyconfig:

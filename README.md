@@ -332,6 +332,12 @@ Tested 2026-10-30: with `ZC_LIGHTWALLETD` pointing at our node, a 0.001 TAZ shie
 If the site skips `/pay`, your browser may still hold an invoice from an earlier run that
 the saved database remembers as paid. Use a private window or clear cookies for localhost.
 
+## Running it on a real domain over HTTPS
+
+`docker-compose.https.yml` puts Caddy in front of the site: automatic certificates, http
+redirected to https, HSTS, secure cookies, and no access log. Set `SITE_DOMAIN` in `.env` and
+follow [docs/HTTPS.md](docs/HTTPS.md).
+
 ## Let other people try it (temporary public address, test only)
 
 `scripts/go-public.ps1` puts the Compose stack on a temporary public https address

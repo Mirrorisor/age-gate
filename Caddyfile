@@ -1,0 +1,12 @@
+# HTTPS in front of the age-gate site, for a real domain (docker-compose.https.yml, docs/HTTPS.md).
+# Caddy gets and renews the certificate by itself. There is no `log` directive on purpose:
+# without one Caddy keeps no access log, so no visitor addresses are written down here.
+{$SITE_DOMAIN} {
+	encode
+	reverse_proxy site:5000
+	header {
+		# Browsers remember to use https for this domain for a year.
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

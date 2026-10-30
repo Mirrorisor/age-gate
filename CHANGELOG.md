@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- `docker-compose.https.yml`, `Caddyfile` and `docs/HTTPS.md`: HTTPS on a real domain with Caddy (automatic certificates, HSTS, secure cookies, no access log, the site reachable only through the proxy).
+- CI runs the passport end-to-end check (`.github/workflows/e2e.yml`) on every push to main and weekly, against the site and the reusable `PassportGate`.
 - Payments checked against our own node (roadmap M2): Tested 2026-10-30: with `ZC_LIGHTWALLETD` pointing at our node, a 0.001 TAZ shielded payment from Zingo was detected and marked paid, and the site recorded it, with no public chain server in the path.
 - `docs/SELF-REVIEW.md`: an internal self-review, 38 attacks against the running stack. Fixes: the CSP nonce goes only into the site's own scripts; the gates refuse control characters and backslashes in redirect targets; the passport service refuses proof sets with repeated or missing pieces.
 - `docs/CREDENTIAL-SIZE.md` and `scripts/measure_mso_limit.py`: why larger credentials fail (a 2,533-byte MSO, about 62 fields), and a C++ prover crash on nested fields. Corrects the README, which blamed portraits.

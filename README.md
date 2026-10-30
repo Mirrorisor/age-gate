@@ -26,6 +26,7 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Flask site accepting a successful check end to end | **Works** with a real phone wallet and in demo mode (`DEMO_FAKE_WALLET=1`). The site opens `/members` only on a `verified` verdict. |
 | A second wallet and issuer | **Works** with the EU Age Verification reference app and the EU demo issuer (see "Two wallets, two issuers (tested)"). |
 | Optional payment step (`PAYMENT_GATE=1`) | **Works on the Zcash testnet only.** Tested with a fake checkout server and with the real ZecCheckout and a testnet wallet. Never use real funds. |
+| Optional passport route (`/passport`, ZKPassport app) | **Works in dev mode with mock passports only**: a mock adult passed, paid on testnet and reached `/members`; a mock minor could not make a proof. Real passports **not tested**, on purpose (see "Prove age with a passport"). |
 
 ## How it fits together
 
@@ -353,13 +354,45 @@ no access log. `TRUST_PROXY=1` makes the site read the visitor's address from th
 tunnel's `X-Forwarded-For` header; only use it when the site is reachable through that
 one proxy (Compose binds it to 127.0.0.1, so it is).
 
+## Prove age with a passport (ZKPassport, test only)
+
+An optional second route: `/passport` shows a QR code (a link on a phone) for the
+[ZKPassport](https://github.com/zkpassport/zkpassport-packages) app, which reads a passport's
+chip and proves "18 or over". A small service in `passport/` checks the proofs on this
+machine, never through ZKPassport's API. Details: [passport/README.md](passport/README.md).
+
+1. In `.env`: `PASSPORT_URL=http://passport:8100` and keep `PASSPORT_DEV_MODE=1`.
+2. Start it with the rest of the stack:
+
+   ```
+   docker compose -f docker-compose.yml -f docker-compose.fork.yml --profile passport up -d --build
+   ```
+
+3. Open `/passport` at the same address as `SITE_ORIGIN` (a proof made for `localhost`
+   is refused when the site expects a tunnel address, and the other way round).
+4. No passport needed for testing: [scripts/test-phone](scripts/test-phone/README.md) stands
+   in for the app and proves from a mock passport.
+
+What the site learns is only "18 or over": it drops the per-site identifier ZKPassport
+proofs carry, so visits cannot be linked. Every visit gets its own random scope, used
+once, so a proof captured from one visit is refused in any other.
+
+Dev mode accepts only mock passports from the fictional "Zero Knowledge Republic". Keep it
+on: ZKPassport says it has not had an external audit, and neither has this service. A
+question to ZKPassport about the per-visit scope:
+<https://github.com/zkpassport/zkpassport-packages/issues/385>.
+
 ## Known problems and open questions
 
 - **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit
   only fits a document whose signed data is small. In testing, a signed data block
   of about 2,500 bytes proved fine and about 2,560 bytes failed, so documents with a
   portrait or many fields are probably too large. The Age Verification document is
-  small enough.
+  small enough. The Multipaz test app's ZK-friendly mDL also failed for a separate
+  reason (it carried key authorizations the circuit does not accept); that was fixed in
+  the test app ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126))
+  as a workaround until [longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220).
+  Not retested here since.
 - **Wrong document type:** the verifier asks for `eu.europa.ec.av.1`. Other types
   give `claim-mismatch`.
 - **Issuer trust is manual.** You must supply the right root certificate yourself.
@@ -393,7 +426,9 @@ Built on open-source work by others: Google's
 [zk-age-verifier](https://pypi.org/project/zk-age-verifier/) by pipe23-org, and
 the Multipaz test app from the OpenWallet Foundation, the EU age verification
 reference app, Zingo Labs' Zingo wallet, the Zcash Foundation's Zebra, and
-[ZecCheckout](https://github.com/samizdatproject/zeccheckout) by Samizdat Project.
+[ZecCheckout](https://github.com/samizdatproject/zeccheckout) by Samizdat Project,
+and [ZKPassport](https://github.com/zkpassport/zkpassport-packages) (Apache-2.0) for the
+optional passport route.
 This repository contains only glue code and scripts written while learning; none of
 the above is included in it.
 

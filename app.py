@@ -119,7 +119,8 @@ def throttle():
     if request.path == "/api/passport/finish":
         request.max_content_length = PASSPORT_UPLOAD_LIMIT
     if request.path in (
-        "/api/start", "/api/finish", "/api/passport/finish", "/pay", "/demo-verify"
+        "/api/start", "/api/finish", "/api/passport/start", "/api/passport/finish", "/pay",
+        "/demo-verify",
     ):
         if not limiter.allow(request.remote_addr):
             return too_many()
@@ -258,7 +259,7 @@ PASSPORT_PAGE = """
 <h1>Use your passport</h1>
 <p>The ZKPassport app reads your passport's chip and proves you are 18 or over.
 This site learns only that, not your name, birthdate, nationality or passport number.</p>
-<div id="passport" data-dev="{dev}" data-scope="{scope}" data-finish="/api/passport/finish">
+<div id="passport" data-dev="{dev}" data-start="/api/passport/start" data-finish="/api/passport/finish">
 <button id="passport-go">Start</button>
 <p id="passport-msg"></p>
 <div id="passport-qr"></div>
@@ -326,15 +327,23 @@ def passport_page():
     if not PASSPORT_URL:
         return "Passports are not set up on this site.", 404
     dev = "1" if os.environ.get("PASSPORT_DEV_MODE", "1") == "1" else "0"
-    # A fresh scope for every visit: proofs are made for it, so a proof captured in one
-    # session is refused in any other. It can be tried once (see UsedScopes), within
-    # PASSPORT_VISIT_SECONDS.
+    return PASSPORT_PAGE.replace("{dev}", dev).replace("{nonce}", g.nonce)
+
+
+@app.route("/api/passport/start", methods=["POST"])
+def passport_start():
+    """Start a passport check: a fresh scope, which the proofs will be made for.
+
+    Done on Start, not on page load, so just visiting /passport sets no cookie. A proof
+    captured in one check is refused in any other, and each scope can be tried once (see
+    UsedScopes), within PASSPORT_VISIT_SECONDS.
+    """
+    if not PASSPORT_URL:
+        return jsonify({"error": "not found"}), 404
     scope = "age-over-18:" + secrets.token_urlsafe(16)
     session["passport_scope"] = scope
     session["passport_scope_at"] = time.time()
-    return (
-        PASSPORT_PAGE.replace("{dev}", dev).replace("{scope}", scope).replace("{nonce}", g.nonce)
-    )
+    return jsonify({"scope": scope})
 
 
 @app.route("/passport/client.js")
@@ -532,6 +541,16 @@ def privacy():
         if PAYMENT_GATE
         else ""
     )
+    passport = (
+        "<li>Passport check: the ZKPassport app on your phone proves you are 18 or over. "
+        "This site sees the answer, not your name, birthdate, nationality or passport "
+        "number, and drops the identifier ZKPassport proofs carry, so two visits cannot be "
+        "linked. The app and this page talk through ZKPassport's relay service. When you "
+        "press Start, the cookie also holds a random code for that check, removed when it "
+        "finishes.</li>"
+        if PASSPORT_URL
+        else ""
+    )
     return (
         "<h1>What this site learns about you</h1>"
         "<p>This is an experimental demo. It uses test certificates and must not be "
@@ -547,6 +566,7 @@ def privacy():
         "random invoice number is yours). It holds no personal details. Logging out "
         "clears it completely.</li>"
         + payment
+        + passport
         + "<li>This demo keeps no accounts and no record of who you are.</li>"
         "</ul>"
         '<p><a href="/">Home</a></p>'

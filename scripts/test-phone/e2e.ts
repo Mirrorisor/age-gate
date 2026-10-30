@@ -21,12 +21,13 @@ type Visit = { cookie: string; scope: string }
 type Proofs = { proofs: unknown; result: unknown }
 
 async function openVisit(): Promise<Visit> {
-  const response = await fetch(`${SITE}/passport`)
-  if (response.status !== 200) throw new Error(`/passport answered ${response.status}`)
-  const page = await response.text()
-  const scope = page.split('data-scope="')[1]?.split('"')[0]
+  const page = await fetch(`${SITE}/passport`)
+  if (page.status !== 200) throw new Error(`/passport answered ${page.status}`)
+  if (page.headers.get("set-cookie")) throw new Error("Just visiting /passport set a cookie")
+  const response = await fetch(`${SITE}/api/passport/start`, { method: "POST" })
+  const scope = ((await response.json()) as { scope?: string }).scope
   const cookie = response.headers.get("set-cookie")?.split(";")[0]
-  if (!scope || !cookie) throw new Error("The passport page gave no scope or no session cookie")
+  if (!scope || !cookie) throw new Error("Start gave no scope or no session cookie")
   return { cookie, scope }
 }
 

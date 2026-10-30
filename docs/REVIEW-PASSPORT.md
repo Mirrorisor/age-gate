@@ -18,7 +18,7 @@ routes in `app.py`.
 | `passport/check.ts` | Rebuilds the query (age >= 18, nothing disclosed), rejects any other result keys, checks the scope prefix, calls the SDK's `verify()` with `verifierMode: "local"`. Fails closed. |
 | `passport/server.ts` | Internal HTTP service (`POST /verify`), not published on any port; only the site calls it. Keeps nothing. |
 | `passport/client.ts` | Browser side: opens the request with the visit's scope, shows the QR, posts proofs to the site. Untrusted by design. |
-| `app.py`: `passport_page`, `passport_finish`, `passport_check`, `UsedScopes` | Makes a random scope per visit (`age-over-18:` + 16 random bytes, base64url) with a timestamp in the signed session; accepts it once (a server-side record, since the session is in the cookie) and for 15 minutes; passes the site's own domain (from `SITE_ORIGIN`, never from the visitor). |
+| `app.py`: `passport_page`, `passport_start`, `passport_finish`, `passport_check`, `UsedScopes` | On Start (not on page load, so visiting sets no cookie), makes a random scope per check (`age-over-18:` + 16 random bytes, base64url) with a timestamp in the signed session; accepts it once (a server-side record, since the session is in the cookie) and for 15 minutes; passes the site's own domain (from `SITE_ORIGIN`, never from the visitor). |
 
 ## Threat model, as I understand it
 

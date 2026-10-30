@@ -419,6 +419,11 @@ question to ZKPassport about the per-visit scope:
   Compose requires it, and the payment step refuses to start with the placeholder.
   Always set a real one beyond a quick local test.
 
+## Threat model
+
+What the system protects, how far each part is trusted, and the known gaps:
+[docs/THREAT-MODEL.md](docs/THREAT-MODEL.md).
+
 ## Write-up
 
 A plain-language account of what I built and what went wrong along the way: [docs/WRITEUP.md](docs/WRITEUP.md).

@@ -10,7 +10,10 @@ import app as site
 from agecheck.zecpay import InvoiceStore
 
 # The only things the session cookie may ever hold. None of them is personal data.
-ALLOWED_SESSION_KEYS = {"av_session", "is_adult", "invoice_id"}
+# passport_scope is a random code for one passport check, passport_scope_at when it began.
+ALLOWED_SESSION_KEYS = {
+    "av_session", "is_adult", "invoice_id", "passport_scope", "passport_scope_at",
+}
 
 PROOF = "wallet-proof-" + "p" * 200  # stands in for the wallet's zero-knowledge proof
 
@@ -122,9 +125,31 @@ def test_the_browser_is_told_not_to_leak_where_you_came_from():
         assert response.headers["Referrer-Policy"] == "no-referrer", path
 
 
-def test_the_site_never_sets_a_cookie_just_for_visiting():
-    for path in ("/", "/verify", "/privacy"):
+def test_the_site_never_sets_a_cookie_just_for_visiting(monkeypatch):
+    monkeypatch.setattr(site, "PASSPORT_URL", "http://passport:8100")  # so /passport is on
+    for path in ("/", "/verify", "/privacy", "/passport"):
         assert "Set-Cookie" not in site.app.test_client().get(path).headers, path
+
+
+def test_a_passport_check_keeps_only_allowed_keys_and_no_proof(monkeypatch):
+    monkeypatch.setattr(site, "PASSPORT_URL", "http://passport:8100")
+    monkeypatch.setattr(site, "passport_check", lambda *_: True)
+    client = site.app.test_client()
+    client.post("/api/passport/start")
+    reply = client.post("/api/passport/finish", json={"proofs": [PROOF], "result": {"age": 1}})
+    assert reply.get_json()["ok"] is True
+    contents = session_contents(client)
+    assert set(contents) <= ALLOWED_SESSION_KEYS
+    assert contents.get("is_adult") is True
+    assert "passport_scope" not in contents  # removed when the check finishes
+    assert PROOF not in reply.get_data(as_text=True)
+
+
+def test_the_privacy_page_describes_the_passport_check_when_it_is_on(monkeypatch):
+    monkeypatch.setattr(site, "PASSPORT_URL", "http://passport:8100")
+    page = site.app.test_client().get("/privacy").get_data(as_text=True)
+    assert "Passport check" in page
+    assert "relay" in page
 
 
 def test_the_privacy_page_states_the_limits_honestly():

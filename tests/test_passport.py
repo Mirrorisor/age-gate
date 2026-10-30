@@ -13,12 +13,21 @@ def passport_on(monkeypatch):
 
 
 def open_page(client):
-    """Visit /passport like a browser; returns the scope the page and the session now share."""
-    page = client.get("/passport").get_data(as_text=True)
-    scope = page.split('data-scope="')[1].split('"')[0]
+    """Open /passport and press Start like a browser; returns the check's scope."""
+    assert client.get("/passport").status_code == 200
+    scope = client.post("/api/passport/start").get_json()["scope"]
     with client.session_transaction() as s:
         assert s["passport_scope"] == scope
     return scope
+
+
+def test_just_visiting_the_passport_page_sets_no_cookie(passport_on):
+    assert "Set-Cookie" not in site.app.test_client().get("/passport").headers
+
+
+def test_start_is_off_without_a_passport_service(monkeypatch):
+    monkeypatch.setattr(site, "PASSPORT_URL", "")
+    assert site.app.test_client().post("/api/passport/start").status_code == 404
 
 
 def test_everything_is_off_without_a_passport_service(monkeypatch):

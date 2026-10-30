@@ -18,13 +18,15 @@ const link = byId<HTMLAnchorElement>("passport-link")
 const testBox = byId<HTMLDetailsElement>("passport-test")
 const testUrl = byId<HTMLTextAreaElement>("passport-url")
 const devMode = root.dataset.dev === "1"
-// The site makes a new scope for every visit, so a proof only works in the visit that asked.
-const scope = root.dataset.scope!
 
 async function start() {
   button.disabled = true
   message.textContent = "Starting..."
   try {
+    // The site makes a new scope for every check, so a proof only works in the check that asked.
+    const started = await fetch(root.dataset.start!, { method: "POST" })
+    if (!started.ok) throw new Error("could not start the check")
+    const { scope } = (await started.json()) as { scope: string }
     const zkPassport = new ZKPassport()
     const builder = await zkPassport.request({
       name: "Age check",

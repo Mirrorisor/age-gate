@@ -1,0 +1,13 @@
+{
+  "name": "age-gate-passport",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:client": "bun build client.ts --target browser --minify --outfile public/client.js --external @aztec/bb.js --external @aztec-foundation/bb.js --external node:fs",
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@zkpassport/sdk": "0.19.2",
+    "qrcode": "1.5.4"
+  }
+}

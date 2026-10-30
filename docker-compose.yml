@@ -40,6 +40,8 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-0}
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-30}
       INVOICE_RETENTION_DAYS: ${INVOICE_RETENTION_DAYS:-30}
+      PASSPORT_URL: ${PASSPORT_URL:-}
+      PASSPORT_DEV_MODE: ${PASSPORT_DEV_MODE:-1}
       SECRET_KEY: ${SECRET_KEY:?Create a .env file with SECRET_KEY (see .env.example)}
       PAYMENT_GATE: ${PAYMENT_GATE:-0}
       ZC_URL: ${ZC_URL:-http://fakepay:8080}
@@ -47,6 +49,18 @@ services:
       ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}
       PRICE_ZEC: ${PRICE_ZEC:-0.001}
       INVOICE_DB: /data/invoices.db
+
+  # Optional: prove age with a passport through the ZKPassport app (see passport/README.md).
+  # Only starts with:  --profile passport   and needs PASSPORT_URL=http://passport:8100 in .env
+  # Not published on any port: only the site talks to it.
+  passport:
+    profiles: ["passport"]
+    restart: unless-stopped
+    build:
+      context: ./passport
+    environment:
+      PASSPORT_DEV_MODE: ${PASSPORT_DEV_MODE:-1}
+      PASSPORT_RPC_URL: ${PASSPORT_RPC_URL:-}
 
   # A stand-in for ZecCheckout so the payment step can be tried with no wallet.
   # Only starts with:  docker compose --profile fakepay up --build

@@ -6,6 +6,9 @@ import subprocess
 import threading
 import time
 from collections import defaultdict, deque
+from urllib.parse import urlsplit
+
+import requests
 
 from flask import Flask, g, session, redirect, url_for, request, jsonify
 
@@ -53,6 +56,12 @@ if os.environ.get("TRUST_PROXY") == "1":
 # The wallet's zero-knowledge proof is hundreds of kilobytes, so /api/finish gets more room.
 PROOF_UPLOAD_LIMIT = 4 * 1024 * 1024
 verifier = AgeVerifier(VERIFIER)
+
+# Optional: prove age with a passport through the ZKPassport app. PASSPORT_URL is the
+# passport service (passport/ in this repo), reached server to server; empty turns it off.
+PASSPORT_URL = os.environ.get("PASSPORT_URL", "").rstrip("/")
+# A passport proof is several zero-knowledge proofs, so its upload gets more room.
+PASSPORT_UPLOAD_LIMIT = 8 * 1024 * 1024
 
 
 class RateLimiter:
@@ -107,7 +116,11 @@ def throttle():
     g.nonce = secrets.token_urlsafe(16)
     if request.path == "/api/finish":
         request.max_content_length = PROOF_UPLOAD_LIMIT
-    if request.path in ("/api/start", "/api/finish", "/pay", "/demo-verify"):
+    if request.path == "/api/passport/finish":
+        request.max_content_length = PASSPORT_UPLOAD_LIMIT
+    if request.path in (
+        "/api/start", "/api/finish", "/api/passport/finish", "/pay", "/demo-verify"
+    ):
         if not limiter.allow(request.remote_addr):
             return too_many()
 
@@ -120,8 +133,11 @@ def add_security_headers(response):
         body = response.get_data(as_text=True)
         if "<script>" in body:
             response.set_data(body.replace("<script>", '<script nonce="' + nonce + '">'))
+    # The passport page talks to the ZKPassport app through ZKPassport's WebSocket relay,
+    # so only that page may open WebSocket connections to other hosts.
+    connect = "'self' wss:" if request.path == "/passport" else "'self'"
     response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; script-src 'nonce-" + nonce + "'; connect-src 'self'; "
+        "default-src 'none'; script-src 'nonce-" + nonce + "'; connect-src " + connect + "; "
         "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -194,8 +210,10 @@ def home():
 @app.route("/verify")
 def verify():
     extra = ""
+    if PASSPORT_URL:
+        extra += '<hr><p><a href="/passport">Or use your passport (ZKPassport app)</a></p>'
     if DEMO:
-        extra = '<hr><p><a href="/demo-verify">Demo mode: use the fake test wallet</a></p>'
+        extra += '<hr><p><a href="/demo-verify">Demo mode: use the fake test wallet</a></p>'
     return PAGE + extra
 
 
@@ -234,6 +252,76 @@ def api_finish():
     if not ok:
         payload["message"] = explain(detail)
     return jsonify(payload)
+
+
+PASSPORT_PAGE = """
+<h1>Use your passport</h1>
+<p>The ZKPassport app reads your passport's chip and proves you are 18 or over.
+This site learns only that, not your name, birthdate, nationality or passport number.</p>
+<div id="passport" data-dev="{dev}" data-finish="/api/passport/finish">
+<button id="passport-go">Start</button>
+<p id="passport-msg"></p>
+<div id="passport-qr"></div>
+<p><a id="passport-link" hidden>Open the ZKPassport app</a></p>
+<details id="passport-test" hidden><summary>Test mode: the request link</summary>
+<textarea id="passport-url" readonly rows="6" cols="60"></textarea></details>
+</div>
+<p><a href="/verify">Back</a></p>
+<script type="module" nonce="{nonce}" src="/passport/client.js"></script>
+"""
+_passport_client = {}
+
+
+def passport_check(proofs, result, domain):
+    """Ask the passport service whether the proofs show 18 or over. True or False."""
+    response = requests.post(
+        PASSPORT_URL + "/verify",
+        json={"proofs": proofs, "result": result, "domain": domain},
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json().get("ok") is True
+
+
+@app.route("/passport")
+def passport_page():
+    if not PASSPORT_URL:
+        return "Passports are not set up on this site.", 404
+    dev = "1" if os.environ.get("PASSPORT_DEV_MODE", "1") == "1" else "0"
+    return PASSPORT_PAGE.replace("{dev}", dev).replace("{nonce}", g.nonce)
+
+
+@app.route("/passport/client.js")
+def passport_client():
+    if not PASSPORT_URL:
+        return "Not found", 404
+    if "js" not in _passport_client:
+        try:
+            response = requests.get(PASSPORT_URL + "/client.js", timeout=10)
+            response.raise_for_status()
+        except requests.RequestException:
+            return "Passport service unavailable", 502
+        _passport_client["js"] = response.content
+    return app.response_class(_passport_client["js"], mimetype="text/javascript")
+
+
+@app.route("/api/passport/finish", methods=["POST"])
+def passport_finish():
+    if not PASSPORT_URL:
+        return jsonify({"ok": False, "message": "Passports are not set up on this site."}), 404
+    body = request.get_json(silent=True) or {}
+    domain = urlsplit(SITE_ORIGIN).hostname or "localhost"
+    try:
+        ok = passport_check(body.get("proofs"), body.get("result"), domain)
+    except (requests.RequestException, ValueError):
+        return jsonify({
+            "ok": False,
+            "message": "The passport check is not reachable right now. Try again later.",
+        }), 502
+    if not ok:
+        return jsonify({"ok": False, "message": "The passport proof did not show you are 18 or over."})
+    session["is_adult"] = True
+    return jsonify({"ok": True, "next": url_for("members")})
 
 
 @app.route("/demo-verify")

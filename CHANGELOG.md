@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- `docs/CREDENTIAL-SIZE.md` and `scripts/measure_mso_limit.py`: why larger credentials fail (a 2,533-byte MSO, about 62 fields), and a C++ prover crash on nested fields. Corrects the README, which blamed portraits.
+- `docs/VERIFIER-MAINTENANCE.md`: the routine for keeping the verifier fork safe, and its first run. CI now audits the site's and the passport service's packages weekly.
 - `agecheck.flask_passport.PassportGate`: the passport check as a drop-in Flask blueprint, sharing its pass with `AgeGate`; `examples/passport_site.py` offers both. The scope record and service client moved to `agecheck.passport`, which the site now uses too.
 - The stack now runs our verifier fork by default (upstream has not responded to its fixes); `docker-compose.upstream.yml` runs upstream's image for comparison and replaces `docker-compose.fork.yml`.
 - Rate limits are kept in a SQLite file under Compose (`RATE_LIMIT_DB`), shared by every worker and kept across restarts. It holds an HMAC of each address under `SECRET_KEY`, never the address, and overwrites deleted rows.

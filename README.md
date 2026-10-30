@@ -393,11 +393,13 @@ question to ZKPassport about the per-visit scope:
 
 ## Known problems and open questions
 
-- **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit
-  only fits a document whose signed data is small. In testing, a signed data block
-  of about 2,500 bytes proved fine and about 2,560 bytes failed, so documents with a
-  portrait or many fields are probably too large. The Age Verification document is
-  small enough. The Multipaz test app's ZK-friendly mDL also failed for a separate
+- **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit only
+  fits an issuer-signed MSO of up to 2,533 bytes, which is about 62 fields: the MSO holds
+  one digest per field, so the number of fields decides it, not their size (a 60 KB
+  portrait costs the same as a one-letter field). Many mDLs have more fields than that;
+  the Age Verification document has few. Separately, Longfellow's C++ prover crashes on
+  credentials with nested fields such as `driving_privileges`. Measurements and options:
+  [docs/CREDENTIAL-SIZE.md](docs/CREDENTIAL-SIZE.md). The Multipaz test app's ZK-friendly mDL also failed for a separate
   reason (it carried key authorizations the circuit does not accept); that was fixed in
   the test app ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126))
   as a workaround until [longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220).

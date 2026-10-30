@@ -63,6 +63,9 @@ works from a real wallet.
   Longfellow maintainers, either support for larger documents or a request shape that fits.
 - **Done when:** an mDL from the Multipaz test app proves `age_over_18` through the site, or the
   limit and its cause are documented upstream.
+- **Started:** the limit is measured and explained in [CREDENTIAL-SIZE.md](CREDENTIAL-SIZE.md):
+  a 2,533-byte MSO, about 62 fields, decided by the number of fields and not their size. It also
+  found a crash in Longfellow's C++ prover on nested fields, not yet reported upstream.
 
 ### M5. A careful real-credential pilot
 
@@ -84,6 +87,9 @@ responded to the fixes offered to it, so this project runs and maintains its own
 - **Done when:** for the funded period, every upstream release and security advisory has been
   either merged into the fork or recorded as not applicable, and the stack is pinned to a fork
   image built from that state.
+- **Started:** the routine and its log are in [VERIFIER-MAINTENANCE.md](VERIFIER-MAINTENANCE.md).
+  The first run fixed five known vulnerabilities in the fork's dependencies, and CI now audits
+  the site's and the passport service's packages every week.
 
 ## Not planned
 

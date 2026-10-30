@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- Rate limits are kept in a SQLite file under Compose (`RATE_LIMIT_DB`), shared by every worker and kept across restarts. It holds an HMAC of each address under `SECRET_KEY`, never the address, and overwrites deleted rows.
 - Used passport scopes are kept in a SQLite file under Compose (`PASSPORT_SCOPES_DB`), so a restart cannot give a used check a second try.
 - `docs/THREAT-MODEL.md` and `docs/ROADMAP.md`: the whole system's threats and gaps, and funded milestones.
 - A passport visit's scope is now recorded on the server when tried, so resending an old session cookie cannot reuse it, and it expires after 15 minutes. Found by the new `scripts/e2e.ps1`, which checks the passport route end to end with mock passports.

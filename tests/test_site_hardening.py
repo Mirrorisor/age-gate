@@ -67,6 +67,32 @@ def test_rate_limit_is_per_address_and_forgets_after_the_window(monkeypatch):
     assert strict.allow("b")
 
 
+def test_rate_limits_survive_a_restart_when_kept_in_a_file(tmp_path):
+    path = str(tmp_path / "ratelimit.db")
+    first = site.RateLimiter(2, path=path, secret="k")
+    assert first.allow("a") and first.allow("a")
+    restarted = site.RateLimiter(2, path=path, secret="k")
+    assert not restarted.allow("a")
+    assert restarted.allow("b")
+
+
+def test_two_workers_sharing_a_file_share_the_count(tmp_path):
+    path = str(tmp_path / "ratelimit.db")
+    worker_one = site.RateLimiter(3, path=path, secret="k")
+    worker_two = site.RateLimiter(3, path=path, secret="k")
+    results = [worker_one.allow("a"), worker_two.allow("a"), worker_one.allow("a"), worker_two.allow("a")]
+    assert results == [True, True, True, False]
+
+
+def test_the_rate_limit_file_never_holds_an_address(tmp_path):
+    path = tmp_path / "ratelimit.db"
+    limiter = site.RateLimiter(5, path=str(path), secret="k")
+    limiter.allow("203.0.113.7")
+    stored = [row[0] for row in limiter._db.execute("SELECT key FROM hits")]
+    assert stored and "203.0.113.7" not in stored
+    assert b"203.0.113.7" not in path.read_bytes()
+
+
 def test_rate_limit_of_zero_means_off():
     limiter = site.RateLimiter(0)
     assert all(limiter.allow("a") for _ in range(100))

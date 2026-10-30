@@ -12,7 +12,9 @@ on test certificates; none of this makes it fit for real users.
   (everyone is logged out on restart). The payment step still insists on a real key.
 - **Rate limits.** `/api/start`, `/api/finish`, `/api/passport/start`, `/api/passport/finish`, `/pay` and `/demo-verify` allow
   `RATE_LIMIT_PER_MIN` requests per minute per address (default 30, `0` turns it off).
-  Counts live in memory, so the container runs one worker process. Behind a reverse proxy
+  Under Compose the counts live in a SQLite file (`RATE_LIMIT_DB`), so they survive a restart
+  and every worker shares them; the file holds an HMAC of each address under `SECRET_KEY`,
+  never the address, and deleted rows are overwritten. Behind a reverse proxy
   every visitor may share the proxy's address.
 - **Browser protections.** A strict Content-Security-Policy (only this site's own scripts,
   which carry a fresh nonce on each response, and no framing), plus `nosniff`,

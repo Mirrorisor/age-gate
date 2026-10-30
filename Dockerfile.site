@@ -16,6 +16,7 @@ USER appuser
 
 EXPOSE 5000
 
-# gunicorn, not Flask's built-in server. One worker process on purpose: the rate
-# limiter keeps its counts in memory, so extra workers would each count separately.
+# gunicorn, not Flask's built-in server. One worker is plenty for a demo. More are safe
+# when RATE_LIMIT_DB and PASSPORT_SCOPES_DB point at files (Compose sets both), since the
+# workers then share the counts and the used scopes.
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app:app"]

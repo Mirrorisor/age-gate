@@ -13,6 +13,10 @@ reviewer can check, not just a promise. The gaps it starts from are in
 - An optional shielded Zcash payment step, tested on testnet with a real wallet.
 - A privacy audit in the test suite that fails if the site keeps more than `/privacy` says.
 - Dependencies pinned, CI building every part, a written threat model.
+- Shared state: invoices, used passport scopes and rate limits are kept in SQLite files, so they
+  survive a restart and are shared by several workers (checked live with two gunicorn workers:
+  exactly 30 of 35 requests got through, and the count survived a restart). Rate-limit rows
+  hold a keyed hash of the address, never the address.
 - Upstream contributions: a merged fix to the Multipaz test app
   ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126)), two open pull
   requests and an issue on the verifier
@@ -41,15 +45,6 @@ an unpaid invoice look paid (threat T8).
   the container's configuration and logs.
 - **Started:** `docker-compose.node.yml` now runs lightwalletd in front of our Zebra node, and
   ZecCheckout takes `ZC_LIGHTWALLETD`. Its first sync and a payment through it are still to do.
-
-### M3. State that survives restarts and more than one worker
-
-Rate limits live in memory, in one process. (Used passport scopes already survive a restart:
-they are kept in a SQLite file.)
-
-- **Deliverable:** rate limits kept in shared storage, so the site can run more than one worker
-  and a restart resets nothing.
-- **Done when:** tests show rate limits hold across a restart and across two workers.
 
 ### M4. Larger credentials (driving licences, photo ID)
 

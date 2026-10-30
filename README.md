@@ -352,8 +352,9 @@ own phone. Test credentials and testnet coins only.
 
 The address changes every time the tunnel starts, and the site is only up while your
 laptop is on. Cloudflare sees visitors' IP addresses and which pages they open; the site
-itself keeps a visitor's address in memory for one minute, for rate limiting, and writes
-no access log. `TRUST_PROXY=1` makes the site read the visitor's address from the
+itself keeps a keyed hash of a visitor's address (never the address) for one minute, for
+rate limiting, in a small file under Compose so all workers share it, and writes no access
+log. `TRUST_PROXY=1` makes the site read the visitor's address from the
 tunnel's `X-Forwarded-For` header; only use it when the site is reachable through that
 one proxy (Compose binds it to 127.0.0.1, so it is).
 

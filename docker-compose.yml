@@ -52,6 +52,8 @@ services:
       INVOICE_DB: /data/invoices.db
       # Passport checks already tried, so a restart cannot give a used one a second try.
       PASSPORT_SCOPES_DB: /data/passport-scopes.db
+      # Rate-limit counts, shared by every worker process and kept across restarts.
+      RATE_LIMIT_DB: /data/ratelimit.db
 
   # Optional: prove age with a passport through the ZKPassport app (see passport/README.md).
   # Only starts with:  --profile passport   and needs PASSPORT_URL=http://passport:8100 in .env

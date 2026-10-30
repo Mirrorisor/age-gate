@@ -6,8 +6,6 @@
 import { ZKPassport } from "@zkpassport/sdk"
 import QRCode from "qrcode"
 
-const SCOPE = "age-over-18"
-
 function byId<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T
 }
@@ -20,6 +18,8 @@ const link = byId<HTMLAnchorElement>("passport-link")
 const testBox = byId<HTMLDetailsElement>("passport-test")
 const testUrl = byId<HTMLTextAreaElement>("passport-url")
 const devMode = root.dataset.dev === "1"
+// The site makes a new scope for every visit, so a proof only works in the visit that asked.
+const scope = root.dataset.scope!
 
 async function start() {
   button.disabled = true
@@ -30,7 +30,7 @@ async function start() {
       name: "Age check",
       logo: "",
       purpose: "Prove you are 18 or over. Nothing else is shared.",
-      scope: SCOPE,
+      scope,
       mode: "fast",
       devMode,
     })

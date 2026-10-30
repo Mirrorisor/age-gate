@@ -11,13 +11,13 @@ import { ZKPassport } from "@zkpassport/sdk"
 import type { ProofResult, QueryResult } from "@zkpassport/utils"
 
 export const MIN_AGE = 18
-export const DEFAULT_SCOPE = "age-over-18"
+export const SCOPE_PREFIX = "age-over-18:"
 
 export type CheckConfig = {
   /** The site's host name, as the visitor's browser sees it (no scheme, no path) */
   domain: string
-  /** Must match the scope the request was made with */
-  scope?: string
+  /** The scope the request was made with: SCOPE_PREFIX plus a random part, new for every visit */
+  scope: string
   /** Accept mock passports (Zero Knowledge Republic) and read the Sepolia registries. Test only. */
   devMode: boolean
   /** Ethereum RPC used to read ZKPassport's certificate and circuit registries */
@@ -29,6 +29,7 @@ export async function checkOver18(
   queryResult: unknown,
   config: CheckConfig,
 ): Promise<boolean> {
+  if (!config.scope.startsWith(SCOPE_PREFIX) || config.scope.length > 100) return false
   if (!Array.isArray(proofs) || proofs.length === 0 || !isRecord(queryResult)) return false
   const age = queryResult.age
   if (!isRecord(age) || !isRecord(age.gte)) return false
@@ -42,7 +43,7 @@ export async function checkOver18(
       proofs: proofs as ProofResult[],
       originalQuery: query,
       queryResult: queryResult as QueryResult,
-      scope: config.scope ?? DEFAULT_SCOPE,
+      scope: config.scope,
       devMode: config.devMode,
       verifierMode: "local",
       config: config.rpcUrl ? { rpcUrl: config.rpcUrl } : undefined,

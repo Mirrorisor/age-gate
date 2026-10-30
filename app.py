@@ -258,7 +258,7 @@ PASSPORT_PAGE = """
 <h1>Use your passport</h1>
 <p>The ZKPassport app reads your passport's chip and proves you are 18 or over.
 This site learns only that, not your name, birthdate, nationality or passport number.</p>
-<div id="passport" data-dev="{dev}" data-finish="/api/passport/finish">
+<div id="passport" data-dev="{dev}" data-scope="{scope}" data-finish="/api/passport/finish">
 <button id="passport-go">Start</button>
 <p id="passport-msg"></p>
 <div id="passport-qr"></div>
@@ -272,11 +272,11 @@ This site learns only that, not your name, birthdate, nationality or passport nu
 _passport_client = {}
 
 
-def passport_check(proofs, result, domain):
+def passport_check(proofs, result, domain, scope):
     """Ask the passport service whether the proofs show 18 or over. True or False."""
     response = requests.post(
         PASSPORT_URL + "/verify",
-        json={"proofs": proofs, "result": result, "domain": domain},
+        json={"proofs": proofs, "result": result, "domain": domain, "scope": scope},
         timeout=120,
     )
     response.raise_for_status()
@@ -288,7 +288,13 @@ def passport_page():
     if not PASSPORT_URL:
         return "Passports are not set up on this site.", 404
     dev = "1" if os.environ.get("PASSPORT_DEV_MODE", "1") == "1" else "0"
-    return PASSPORT_PAGE.replace("{dev}", dev).replace("{nonce}", g.nonce)
+    # A fresh scope for every visit: proofs are made for it, so a proof captured in one
+    # session is refused in any other.
+    scope = "age-over-18:" + secrets.token_urlsafe(16)
+    session["passport_scope"] = scope
+    return (
+        PASSPORT_PAGE.replace("{dev}", dev).replace("{scope}", scope).replace("{nonce}", g.nonce)
+    )
 
 
 @app.route("/passport/client.js")
@@ -311,13 +317,20 @@ def passport_finish():
         return jsonify({"ok": False, "message": "Passports are not set up on this site."}), 404
     body = request.get_json(silent=True) or {}
     domain = urlsplit(SITE_ORIGIN).hostname or "localhost"
+    scope = session.get("passport_scope")
+    if not scope:
+        return jsonify({
+            "ok": False,
+            "message": "Your check expired. Reload the page and try again.",
+        }), 400
     try:
-        ok = passport_check(body.get("proofs"), body.get("result"), domain)
+        ok = passport_check(body.get("proofs"), body.get("result"), domain, scope)
     except (requests.RequestException, ValueError):
         return jsonify({
             "ok": False,
             "message": "The passport check is not reachable right now. Try again later.",
         }), 502
+    session.pop("passport_scope", None)  # one try per page load
     if not ok:
         return jsonify({"ok": False, "message": "The passport proof did not show you are 18 or over."})
     session["is_adult"] = True

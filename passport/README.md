@@ -22,7 +22,11 @@ Lets a visitor prove they are 18 or over with a passport or ID card through the
 - A proof made for another domain (`d=localhost` while the site expected the tunnel address) is
   refused with "The proof comes from a different domain than the one expected". Open the site at
   the same address as `SITE_ORIGIN` when testing.
-- Not tested: real passports, non-dev mode, replaying a captured proof in another session.
+- Each visit to `/passport` gets a new random scope (`age-over-18:<random>`), kept in the session
+  and used for one try; proofs are made for it. Replaying a captured, valid proof in the same
+  session is refused (400, the scope is used up) and in a later visit is refused ("The proof uses a
+  different scope than the one expected").
+- Not tested: real passports, non-dev mode.
 
 Start it with the site:
 

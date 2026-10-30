@@ -12,6 +12,15 @@ def passport_on(monkeypatch):
     monkeypatch.setattr(site, "_passport_client", {})
 
 
+def open_page(client):
+    """Visit /passport like a browser; returns the scope the page and the session now share."""
+    page = client.get("/passport").get_data(as_text=True)
+    scope = page.split('data-scope="')[1].split('"')[0]
+    with client.session_transaction() as s:
+        assert s["passport_scope"] == scope
+    return scope
+
+
 def test_everything_is_off_without_a_passport_service(monkeypatch):
     monkeypatch.setattr(site, "PASSPORT_URL", "")
     client = site.app.test_client()
@@ -39,16 +48,22 @@ def test_the_page_carries_the_nonce_and_only_it_may_open_websockets(passport_on)
 def test_a_good_proof_sets_the_pass_and_sends_the_site_domain(passport_on, monkeypatch):
     seen = {}
 
-    def check(proofs, result, domain):
-        seen.update(proofs=proofs, result=result, domain=domain)
+    def check(proofs, result, domain, scope):
+        seen.update(proofs=proofs, result=result, domain=domain, scope=scope)
         return True
 
     monkeypatch.setattr(site, "passport_check", check)
     monkeypatch.setattr(site, "SITE_ORIGIN", "https://some-words.trycloudflare.com")
     client = site.app.test_client()
+    scope = open_page(client)
     reply = client.post("/api/passport/finish", json={"proofs": ["p"], "result": {"age": 1}})
     assert reply.get_json() == {"ok": True, "next": "/members"}
-    assert seen == {"proofs": ["p"], "result": {"age": 1}, "domain": "some-words.trycloudflare.com"}
+    assert seen == {
+        "proofs": ["p"],
+        "result": {"age": 1},
+        "domain": "some-words.trycloudflare.com",
+        "scope": scope,
+    }
     with client.session_transaction() as s:
         assert s["is_adult"] is True
 
@@ -56,6 +71,7 @@ def test_a_good_proof_sets_the_pass_and_sends_the_site_domain(passport_on, monke
 def test_a_refused_proof_does_not_pass(passport_on, monkeypatch):
     monkeypatch.setattr(site, "passport_check", lambda *_: False)
     client = site.app.test_client()
+    open_page(client)
     reply = client.post("/api/passport/finish", json={"proofs": [], "result": {}})
     assert reply.get_json()["ok"] is False
     with client.session_transaction() as s:
@@ -67,8 +83,33 @@ def test_an_unreachable_service_is_a_502(passport_on, monkeypatch):
         raise requests.ConnectionError("down")
 
     monkeypatch.setattr(site, "passport_check", down)
-    reply = site.app.test_client().post("/api/passport/finish", json={})
-    assert reply.status_code == 502
+    client = site.app.test_client()
+    open_page(client)
+    assert client.post("/api/passport/finish", json={}).status_code == 502
+    with client.session_transaction() as s:
+        assert "passport_scope" in s  # an outage does not use up the visit's try
+
+
+def test_every_visit_gets_its_own_scope(passport_on):
+    assert open_page(site.app.test_client()) != open_page(site.app.test_client())
+
+
+def test_a_proof_without_a_visit_is_refused_before_it_is_checked(passport_on, monkeypatch):
+    monkeypatch.setattr(site, "passport_check", lambda *_: pytest.fail("should not be asked"))
+    client = site.app.test_client()
+    reply = client.post("/api/passport/finish", json={"proofs": ["p"], "result": {}})
+    assert reply.status_code == 400
+    with client.session_transaction() as s:
+        assert "is_adult" not in s
+
+
+def test_a_visit_can_be_finished_only_once(passport_on, monkeypatch):
+    monkeypatch.setattr(site, "passport_check", lambda *_: True)
+    client = site.app.test_client()
+    open_page(client)
+    assert client.post("/api/passport/finish", json={}).get_json()["ok"] is True
+    again = client.post("/api/passport/finish", json={})
+    assert again.status_code == 400
 
 
 def test_passport_check_asks_the_service(passport_on, monkeypatch):
@@ -86,10 +127,15 @@ def test_passport_check_asks_the_service(passport_on, monkeypatch):
         return Reply()
 
     monkeypatch.setattr(site.requests, "post", post)
-    assert site.passport_check(["p"], {"r": 1}, "localhost") is True
+    assert site.passport_check(["p"], {"r": 1}, "localhost", "age-over-18:abc") is True
     assert calls == {
         "url": "http://passport:8100/verify",
-        "json": {"proofs": ["p"], "result": {"r": 1}, "domain": "localhost"},
+        "json": {
+            "proofs": ["p"],
+            "result": {"r": 1},
+            "domain": "localhost",
+            "scope": "age-over-18:abc",
+        },
     }
 
 
@@ -126,4 +172,6 @@ def test_the_client_script_is_a_502_when_the_service_is_down(passport_on, monkey
 def test_passport_uploads_get_more_room_than_other_routes(passport_on, monkeypatch):
     monkeypatch.setattr(site, "passport_check", lambda *_: False)
     big = {"proofs": ["x" * (5 * 1024 * 1024)], "result": {}}
-    assert site.app.test_client().post("/api/passport/finish", json=big).status_code == 200
+    client = site.app.test_client()
+    open_page(client)
+    assert client.post("/api/passport/finish", json=big).status_code == 200

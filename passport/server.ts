@@ -1,6 +1,6 @@
 /**
  * The passport service the age-gate site calls server to server. Not exposed to visitors.
- *   POST /verify    {"proofs": [...], "result": {...}, "domain": "host"}  ->  {"ok": true | false}
+ *   POST /verify    {"proofs": [...], "result": {...}, "domain": "host", "scope": "age-over-18:..."}  ->  {"ok": true | false}
  *   GET  /client.js the browser side, built from client.ts (the site serves it to visitors)
  *   GET  /health    {"ok": true, "devMode": ...}
  * It keeps nothing: no proofs, no identifiers, no visitor addresses.
@@ -33,7 +33,8 @@ Bun.serve({
         return Response.json({ ok: false, error: "bad json" }, { status: 400 })
       }
       const domain = typeof body?.domain === "string" && body.domain ? body.domain : defaultDomain
-      const ok = await checkOver18(body?.proofs, body?.result, { domain, devMode, rpcUrl })
+      const scope = typeof body?.scope === "string" ? body.scope : ""
+      const ok = await checkOver18(body?.proofs, body?.result, { domain, scope, devMode, rpcUrl })
       console.log(JSON.stringify({ event: ok ? "passport_verified" : "passport_refused" }))
       return Response.json({ ok })
     }

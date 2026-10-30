@@ -39,6 +39,8 @@ an unpaid invoice look paid (threat T8).
   or Zaino in front of it), in the same Compose setup.
 - **Done when:** a testnet payment goes through with no public chain server in the path, shown by
   the container's configuration and logs.
+- **Started:** `docker-compose.node.yml` now runs lightwalletd in front of our Zebra node, and
+  ZecCheckout takes `ZC_LIGHTWALLETD`. Its first sync and a payment through it are still to do.
 
 ### M3. State that survives restarts and more than one worker
 

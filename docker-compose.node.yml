@@ -1,4 +1,9 @@
-# A Zcash TESTNET full node (Zebra). Testnet only: about 10 GB of disk.
+# A Zcash TESTNET full node (Zebra) and a lightwalletd in front of it, so ZecCheckout can read
+# the chain from a node we run instead of a public server it cannot verify (threat T8 in
+# docs/THREAT-MODEL.md). Testnet only: about 10 GB of disk for Zebra, plus lightwalletd's cache.
+# lightwalletd builds its cache from Zebra on first start; on testnet that can take hours.
+#
+# Point ZecCheckout at it with ZC_LIGHTWALLETD=http://host.docker.internal:9067 in .env.
 #
 #   docker compose -p zebra-node -f docker-compose.node.yml up -d
 #   docker compose -p zebra-node -f docker-compose.node.yml logs --tail 5
@@ -11,8 +16,34 @@ services:
     restart: unless-stopped
     environment:
       ZEBRA_NETWORK__NETWORK: Testnet
+      # RPC for lightwalletd only. Not published: reachable just inside this Compose network,
+      # which is also why the cookie login can be off.
+      ZEBRA_RPC__LISTEN_ADDR: 0.0.0.0:18232
+      ZEBRA_RPC__ENABLE_COOKIE_AUTH: "false"
     volumes:
       - zebra-testnet:/home/zebra/.cache/zebra
 
+  lightwalletd:
+    image: electriccoinco/lightwalletd:latest@sha256:7be272c4eff6b0a8ac83b61cc98b8ffbf14f3bdad512fa6f17a8ed93d768552f
+    restart: unless-stopped
+    depends_on:
+      - zebra
+    # Plain gRPC, published only on 127.0.0.1: ZecCheckout reaches it from this machine.
+    # Zebra ignores the RPC user and password while its cookie login is off.
+    command:
+      - --rpchost=zebra
+      - --rpcport=18232
+      - --rpcuser=unused
+      - --rpcpassword=unused
+      - --grpc-bind-addr=0.0.0.0:9067
+      - --no-tls-very-insecure
+      - --data-dir=/var/lib/lightwalletd
+      - --log-file=/dev/stdout
+    ports:
+      - "127.0.0.1:9067:9067"
+    volumes:
+      - lightwalletd-testnet:/var/lib/lightwalletd
+
 volumes:
   zebra-testnet:
+  lightwalletd-testnet:

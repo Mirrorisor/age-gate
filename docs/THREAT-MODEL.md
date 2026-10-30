@@ -25,8 +25,8 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 | Verifier (`zk-age-verifier`, our fork) | Container, 127.0.0.1:8000 | Checking mdoc ZK proofs and the issuer chain against the roots in `verifier-config/certs`. |
 | Passport service (`passport/`) | Container, no published port | Checking ZKPassport proofs locally against ZKPassport's on-chain registries. |
 | ZecCheckout | Container, 127.0.0.1:8080 | Telling the site an invoice was paid. Holds only a viewing key. |
-| Public lightwalletd (`testnet.zec.rocks`) | Third party | Chain data for ZecCheckout. **Not verified**: ZecCheckout does not check proof-of-work. |
-| Zebra testnet node | This machine | Not used by the stack yet. |
+| Public lightwalletd (`testnet.zec.rocks`) | Third party | Chain data for ZecCheckout, by default. **Not verified**: ZecCheckout does not check proof-of-work. |
+| Zebra testnet node + lightwalletd | This machine (`docker-compose.node.yml`) | Our own view of the chain; Zebra checks it. ZecCheckout uses it when `ZC_LIGHTWALLETD` points at it. |
 | ZKPassport relay | Third party | Carrying messages between the phone and the browser. The proofs it carries are checked by the passport service, not trusted. |
 | Ethereum RPC (Sepolia in dev mode) | Third party | Registry roots the passport service checks proofs against. |
 | Cloudflare quick tunnel (optional) | Third party | Only when `go-public.ps1` is running; sees visitors' addresses and the pages they open. |
@@ -42,7 +42,7 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 | T5 | Forged "passed" cookie | Cookie signed with `SECRET_KEY`; a random key if none is set; the payment step refuses to start without a real one. | `tests/test_site_hardening.py` |
 | T6 | Fake "paid" webhook | HMAC signature with a 5-minute window, duplicate events ignored, and the site asks ZecCheckout for the invoice again and checks the amount before marking it paid. | `tests/test_payment.py`, `tests/test_hardening.py` |
 | T7 | Using someone else's paid invoice | The invoice number lives in the visitor's own session; logout clears the whole session. | `tests/test_privacy_audit.py` |
-| T8 | Hostile lightwalletd makes an unpaid invoice look paid | **Not answered.** ZecCheckout trusts the public server. | Known gap |
+| T8 | Hostile lightwalletd makes an unpaid invoice look paid | **Answered only when** `ZC_LIGHTWALLETD` points at our own node's lightwalletd; by default ZecCheckout still trusts the public server. A payment through our own node has not been tested yet. | Known gap until tested |
 | T9 | Untrusted issuer accepted | The verifier trusts only the roots in its `certs` folder. Which roots go there is the operator's call. | Verifier tests; the fork's `--check-cert` option explains a refusal |
 | T10 | Mock passports accepted in production | `PASSPORT_DEV_MODE=1` is the default and accepts only mock passports; turning it off is a deliberate step the docs say not to take yet. | `passport/server.ts` |
 | T11 | Script injection, framing, leaks to other sites | Strict CSP with a nonce, no framing, `no-referrer`, no third-party loads (the passport page may also open `wss:` to the relay). | `tests/test_site_hardening.py`, `tests/test_privacy_audit.py` |

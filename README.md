@@ -293,7 +293,10 @@ paid through a signed webhook. Testnet coins have no value. Never use real funds
 
 ZecCheckout is a prototype and holds only a *viewing key*: it can see payments but cannot
 spend. Read its own "Threat model" and "Limitations" before going further. In particular
-it uses a public lightwalletd server and does not verify proof-of-work.
+it uses a public lightwalletd server and does not verify proof-of-work. To read the chain
+from your own node instead, start `docker-compose.node.yml` (Zebra plus lightwalletd; the first
+sync takes hours) and, once lightwalletd has caught up, set
+`ZC_LIGHTWALLETD=http://host.docker.internal:9067` in `.env` and restart ZecCheckout.
 
 ### Set it up
 

@@ -99,6 +99,9 @@ services:
       - zecdata:/home/nonroot
     environment:
       ZC_NETWORK: testnet
+      # Empty: the public testnet.zec.rocks. Set to our own node's lightwalletd (see
+      # docker-compose.node.yml) to stop trusting a public server's view of the chain.
+      ZC_LIGHTWALLETD: ${ZC_LIGHTWALLETD:-}
       ZC_UFVK: ${ZC_UFVK:-}
       ZC_API_KEY: ${ZC_API_KEY:-}
       ZC_WEBHOOK_SECRET: ${ZC_WEBHOOK_SECRET:-}

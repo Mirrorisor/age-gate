@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2.0 (2026-10-31)
+
+Still a test-only demo: test certificates, mock passports, Zcash testnet. Highlights:
+
+- **Passports:** an optional ZKPassport route, with proofs tied to one check and refused on replay, also as a drop-in `PassportGate` for any Flask site.
+- **Payments you can verify:** ZecCheckout can read the chain through your own Zebra node and lightwalletd; tested with a real shielded testnet payment.
+- **Security:** an internal self-review (38 attacks, three low findings fixed), a threat model, every dependency pinned, the verifier fork patched for five known vulnerabilities, and CI that audits packages and runs the passport end-to-end check.
+- **Running it for real:** HTTPS with Caddy on a real domain, shared state that survives restarts and several workers, pages that fit phones.
+- **Findings shared upstream:** the credential size limit measured and a Longfellow prover crash reported (longfellow-zk#221).
+
+All changes, newest first:
+
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
 - Pages fit phones: every page gets a viewport tag, a title and one stylesheet served from the site (`static/site.css`, light and dark), allowed by `style-src 'self'` with no inline styles.
 - `docker-compose.https.yml`, `Caddyfile` and `docs/HTTPS.md`: HTTPS on a real domain with Caddy (automatic certificates, HSTS, secure cookies, no access log, the site reachable only through the proxy).

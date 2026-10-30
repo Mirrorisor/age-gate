@@ -1,0 +1,99 @@
+name: e2e
+
+# The passport route end to end, with MOCK passports (test only): an adult gets in, a minor
+# cannot, and a captured proof is refused on replay in the same visit and in a new one.
+# The same checks as scripts/e2e.ps1, for the age-gate site and for the reusable PassportGate.
+# Each run builds ZKPassport's packages and makes real proofs, so it takes several minutes.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Weekly, so a change outside this repository (ZKPassport's relay or registries, a pinned
+  # image) shows up even when nothing here changes.
+  schedule:
+    - cron: "41 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  passport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [site, example]
+    env:
+      COMPOSE_PROJECT_NAME: age-gate
+      BUN_IMAGE: oven/bun:1.3.8@sha256:371d30538b69303ced927bb5915697ac7e2fa8cb409ee332c66009de64de5aa3
+    steps:
+      - uses: actions/checkout@v4
+
+      # A throwaway configuration: a random key, the passport service on, dev mode (mock
+      # passports only), no payment step. The verifier is not needed for these checks.
+      - name: Write a test .env
+        run: |
+          {
+            echo "SECRET_KEY=$(openssl rand -hex 32)"
+            echo "PASSPORT_URL=http://passport:8100"
+            echo "PASSPORT_DEV_MODE=1"
+            echo "SITE_ORIGIN=http://localhost:5000"
+          } > .env
+
+      - name: Start the site and the passport service
+        run: docker compose --profile passport up -d --build --no-deps site passport
+
+      - name: Start the example site (reusable PassportGate)
+        if: matrix.target == 'example'
+        run: |
+          docker run -d --name age-gate-example --network age-gate_default \
+            -v "$PWD:/src:ro" -e PYTHONPATH=/src/src -e SECRET_KEY="$(openssl rand -hex 32)" \
+            -e PASSPORT_URL=http://passport:8100 -e SITE_DOMAIN=localhost \
+            age-gate-site gunicorn --bind 0.0.0.0:5000 --chdir /src/examples passport_site:app
+
+      - name: Choose the paths to check
+        run: |
+          if [ "${{ matrix.target }}" = example ]; then
+            echo "SITE_URL=http://age-gate-example:5000" >> "$GITHUB_ENV"
+            echo "PASSPORT_PAGE=/passport-check/verify" >> "$GITHUB_ENV"
+            echo "PASSPORT_START=/passport-check/start" >> "$GITHUB_ENV"
+            echo "PASSPORT_FINISH=/passport-check/finish" >> "$GITHUB_ENV"
+          else
+            echo "SITE_URL=http://site:5000" >> "$GITHUB_ENV"
+            echo "PASSPORT_PAGE=/passport" >> "$GITHUB_ENV"
+            echo "PASSPORT_START=/api/passport/start" >> "$GITHUB_ENV"
+            echo "PASSPORT_FINISH=/api/passport/finish" >> "$GITHUB_ENV"
+          fi
+
+      - name: Wait until the page answers
+        run: |
+          for i in $(seq 1 60); do
+            if docker run --rm --network age-gate_default curlimages/curl:8.11.1 \
+                 -fsS -o /dev/null "$SITE_URL$PASSPORT_PAGE"; then exit 0; fi
+            sleep 2
+          done
+          docker compose logs site passport
+          exit 1
+
+      # ZKPassport's relay occasionally drops a message (seen once, 2026-10-30); the script
+      # then reports a relay timeout. One retry tells that apart from a real failure.
+      - name: Run the four checks (one retry for a relay timeout)
+        run: |
+          for attempt in 1 2; do
+            if docker run --rm --network age-gate_default \
+                 -e SITE_URL -e PASSPORT_PAGE -e PASSPORT_START -e PASSPORT_FINISH \
+                 -v "$PWD/scripts/test-phone:/phone:ro" "$BUN_IMAGE" \
+                 bash /phone/test-phone.sh e2e.ts; then exit 0; fi
+            echo "Attempt $attempt failed."
+          done
+          exit 1
+
+      - name: Logs, if anything failed
+        if: failure()
+        run: docker compose logs site passport; docker logs age-gate-example 2>/dev/null || true

@@ -54,9 +54,25 @@ When I tried the Multipaz test app's ZK-friendly driving licence on my phone, it
 
 It is a workaround. The real bug is in the proof library, which should accept key authorizations, and the maintainer filed that separately ([longfellow-zk #220](https://github.com/longfellow-zk/longfellow-zk/issues/220), still open when I looked). When it is fixed the workaround can go.
 
+## Update: getting it ready for someone else to check
+
+Before asking anyone for money, I wanted the project to be something a reviewer could check quickly, and I wanted to have already found the problems I could find myself.
+
+**Payments now go through my own node.** The checkout used to read the blockchain through a public server it had no way to check, so a dishonest server could have made an unpaid invoice look paid. I now run a Zcash testnet node (Zebra) with a lightwalletd in front of it, and point the checkout at that instead. The first sync took about six hours. After that, a shielded test payment from my Zingo wallet was seen and marked paid with no public server involved, and I did it again the next day after a real phone passed the age check.
+
+**I attacked my own site.** I went through my threat model one threat at a time and tried to break each part while it was running: forged and unsigned cookies, faked addresses to get round the rate limit, oversized uploads, forged and stale payment notifications, and, with a real (mock) passport proof, sending it for a different site, under a different code, with one character changed, or with a piece missing. Thirty-seven of thirty-eight attempts were refused the first time. The one that got through was a proof with one of its pieces repeated; it proved nothing extra, but the checker now refuses it. Reading the code turned up two more small things, both fixed with tests. Earlier the same day I had already caught a few others: a cookie set just for visiting a page, which broke my own privacy promise, and IP addresses that would have ended up on disk when I moved the rate limits into a file (they are now stored only as a keyed hash). I wrote it all up as an internal review, clearly labelled as not an independent audit: https://github.com/Mirrorisor/age-gate/blob/main/docs/SELF-REVIEW.md
+
+**I measured why driving licences don't fit.** My guess had been that big fields like a portrait made them too large. I was wrong. The proof circuit can only handle a signed summary of up to 2,533 bytes, and that summary holds one fingerprint per field, so what matters is how many fields the document has, not how big they are: 62 fields fit, 63 don't, and a 60 KB portrait changes nothing. While measuring, I found that the C++ prover crashes outright on a field with nested data, like a licence's list of vehicle categories, while the Rust version of the same prover handles it fine. I reported that to Longfellow ([#221](https://github.com/longfellow-zk/longfellow-zk/issues/221)).
+
+**The fork is now the real thing.** Nobody has answered the fixes I offered to the original verifier, and the project shows little activity, so the age gate now runs my fork by default and keeping it up to date is part of the plan. The first time I checked its dependencies against public vulnerability lists, five known problems came up in two packages, including one that could let a fake server pass a secure connection check. I updated them, the fork's 289 tests still passed, and a real phone still verified against the new build. The site and the passport service had none, and they are now checked automatically every week.
+
+**Other sites can use it.** Both ways in, the phone wallet and the passport, are now small pieces any Flask site can add in a few lines, and they share one "passed" flag, so a site can offer both.
+
+I posted on the Zcash forum asking for a security reviewer, with the threat model and the roadmap attached. One firm has offered; I am checking what they have done before agreeing to anything, and I would still rather the bigger review be part of a grant.
+
 ## What this is not
 
-It isn't secure enough for real users or real money. The verifier calls itself pre-alpha. ZecCheckout is a prototype that uses a public server and doesn't verify proof-of-work, so a hostile server could make an unpaid invoice look paid. For anything real you'd want your own node, real issuers, a proper database, and a review by someone who does this for a living. I also haven't tested any real government-issued credential, so I can't say yet which wallets and issuers will exist for Australians.
+It isn't secure enough for real users or real money. The verifier calls itself pre-alpha, and I now maintain my own copy of it. ZecCheckout is a prototype; on its default settings it uses a public server and doesn't verify proof-of-work, so a hostile server could make an unpaid invoice look paid, which is why mine now reads from my own node. For anything real you'd still want real issuers, a proper database, and a review by someone who does this for a living; my own review doesn't count as that. I also haven't tested any real government-issued credential, so I can't say yet which wallets and issuers will exist for Australians.
 
 ## Why I think it's worth watching
 

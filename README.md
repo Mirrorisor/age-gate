@@ -11,6 +11,14 @@ proved they are over 18."
 > **Status: experimental demo.** The verifier itself says it is pre-alpha and
 > should not be relied on. Do not use this to protect real users or content.
 
+## What it looks like
+
+On a phone, from the running site (October 2026, test mode):
+
+| Prove your age | Or use a passport | Then pay (testnet) |
+|---|---|---|
+| <img src="docs/images/verify.png" width="240" alt="The verify page: a button to prove you are over 18 with a phone wallet, and a link to use a passport instead"> | <img src="docs/images/passport.png" width="240" alt="The passport page showing a QR code to scan with the ZKPassport app"> | <img src="docs/images/pay.png" width="240" alt="The payment page: 0.001 ZEC to a shielded testnet address, status pending"> |
+
 ## What works, and what doesn't
 
 Tested on Windows with Docker Desktop and Chrome, October 2026.

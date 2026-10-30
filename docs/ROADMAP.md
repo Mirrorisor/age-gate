@@ -17,6 +17,9 @@ reviewer can check, not just a promise. The gaps it starts from are in
   survive a restart and are shared by several workers (checked live with two gunicorn workers:
   exactly 30 of 35 requests got through, and the count survived a restart). Rate-limit rows
   hold a keyed hash of the address, never the address.
+- Reusable gates for any Flask site, for the phone wallet (`AgeGate`) and the passport
+  (`PassportGate`), sharing one pass, with instructions in `docs/REUSE.md`, an example site, and
+  tests that mount them on a fresh Flask app in CI.
 - A maintained fork of the verifier, with fixes found while building this (a log of which
   certificate was refused, a safer trust-list loader, `--check-cert`), which the stack runs by
   default.
@@ -27,6 +30,8 @@ reviewer can check, not just a promise. The gaps it starts from are in
   question to ZKPassport ([#385](https://github.com/zkpassport/zkpassport-packages/issues/385)).
 
 ## Milestones
+
+Numbers stay fixed: finished milestones (M3, M6) moved up to "Done so far".
 
 ### M1. External review
 
@@ -66,12 +71,6 @@ consenting testers.
 
 - **Deliverable:** a pilot report: what worked, what failed, what the site and its partners saw.
 - **Done when:** the report is published and the privacy audit still passes with real credentials.
-
-### M6. Something others can reuse
-
-- **Deliverable:** the passport check packaged like the existing Flask age-check module, with
-  instructions for adding both to an existing site.
-- **Done when:** a fresh Flask app gains the age gate by following the instructions, checked in CI.
 
 ### M7. Keep the verifier maintained
 

@@ -15,6 +15,7 @@ import requests
 from flask import Flask, g, session, redirect, url_for, request, jsonify
 
 from agecheck import AgeVerifier, VerifierError
+from agecheck.passport import PassportChecker, PassportError, UsedScopes, new_scope
 from agecheck.reasons import explain
 from agecheck.zecpay import (
     InvoiceStore,
@@ -307,58 +308,12 @@ _passport_client = {}
 PASSPORT_VISIT_SECONDS = 15 * 60
 
 
-class UsedScopes:
-    """Scopes that have been tried, kept on the server.
-
-    The session lives in the visitor's cookie, so taking the scope out of the session is not
-    enough: a visitor who kept the old cookie could send it again. This records each scope as
-    it is tried and refuses it after that. Entries older than a visit are dropped, since the
-    session's own timestamp refuses those anyway.
-
-    With a file path the record lives in a SQLite file, so a restart forgets nothing and
-    processes sharing the file share the record. Without one (``None``) it lives in memory,
-    which is what the tests use.
-    """
-
-    def __init__(self, keep_seconds, path=None):
-        self.keep_seconds = keep_seconds
-        self._lock = threading.Lock()
-        self._db = sqlite3.connect(path or ":memory:", check_same_thread=False, timeout=10)
-        with self._lock, self._db:
-            self._db.execute(
-                "CREATE TABLE IF NOT EXISTS used_scopes (scope TEXT PRIMARY KEY, used_at REAL)"
-            )
-
-    def claim(self, scope):
-        """True the first time a scope is claimed, False after that."""
-        now = time.time()
-        with self._lock, self._db:
-            self._db.execute(
-                "DELETE FROM used_scopes WHERE used_at < ?", (now - self.keep_seconds,)
-            )
-            added = self._db.execute(
-                "INSERT OR IGNORE INTO used_scopes (scope, used_at) VALUES (?, ?)", (scope, now)
-            )
-            return added.rowcount == 1
-
-    def release(self, scope):
-        """Give a scope back when its try never happened (the check was unreachable)."""
-        with self._lock, self._db:
-            self._db.execute("DELETE FROM used_scopes WHERE scope = ?", (scope,))
-
-
 used_scopes = UsedScopes(PASSPORT_VISIT_SECONDS, os.environ.get("PASSPORT_SCOPES_DB") or None)
 
 
 def passport_check(proofs, result, domain, scope):
     """Ask the passport service whether the proofs show 18 or over. True or False."""
-    response = requests.post(
-        PASSPORT_URL + "/verify",
-        json={"proofs": proofs, "result": result, "domain": domain, "scope": scope},
-        timeout=120,
-    )
-    response.raise_for_status()
-    return response.json().get("ok") is True
+    return PassportChecker(PASSPORT_URL).check(proofs, result, domain, scope)
 
 
 @app.route("/passport")
@@ -379,7 +334,7 @@ def passport_start():
     """
     if not PASSPORT_URL:
         return jsonify({"error": "not found"}), 404
-    scope = "age-over-18:" + secrets.token_urlsafe(16)
+    scope = new_scope()
     session["passport_scope"] = scope
     session["passport_scope_at"] = time.time()
     return jsonify({"scope": scope})
@@ -414,7 +369,7 @@ def passport_finish():
         }), 400
     try:
         ok = passport_check(body.get("proofs"), body.get("result"), domain, scope)
-    except (requests.RequestException, ValueError):
+    except (PassportError, requests.RequestException, ValueError):
         used_scopes.release(scope)  # the check never ran, so the visit keeps its try
         return jsonify({
             "ok": False,

@@ -423,6 +423,12 @@ question to ZKPassport about the per-visit scope:
   Compose requires it, and the payment step refuses to start with the placeholder.
   Always set a real one beyond a quick local test.
 
+## Use it in your own site
+
+Both age checks come as drop-in Flask blueprints: `AgeGate` (phone wallet) and `PassportGate`
+(passport), which share one pass. A few lines add them to an existing site; see
+[docs/REUSE.md](docs/REUSE.md) and `examples/passport_site.py`.
+
 ## Threat model
 
 What the system protects, how far each part is trusted, and the known gaps:

@@ -63,32 +63,20 @@ document.getElementById('agecheck-go').addEventListener('click', go);
 """
 
 
-class AgeGate:
-    """An age-check blueprint plus an ``age_required`` decorator.
+class Gate:
+    """What every gate shares: the pass flag, ``age_required``, and safe returns.
 
-    Args:
-        verifier_url: Base URL of the zk-age-verifier service. Give this or ``verifier``.
-        verifier: An object with ``start_session()`` and ``finish(session_id, response)``,
-            for tests or a custom client. Give this or ``verifier_url``.
-        url_prefix: Where the gate's routes live (default ``/age``).
-        default_next: Where to send a visitor after passing, when they came straight
-            to the gate rather than from a protected page. Must be a path on this site.
-        session_key: The session key that records a pass.
+    A subclass sets ``self.blueprint`` and names its verify page in ``verify_endpoint``.
+    Gates that use the same ``session_key`` share one pass, so a site can offer more
+    than one way to prove age.
     """
 
-    def __init__(self, verifier_url=None, *, verifier=None, url_prefix="/age",
-                 default_next="/", session_key="is_adult"):
-        if (verifier_url is None) == (verifier is None):
-            raise ValueError("give exactly one of verifier_url or verifier")
-        self.verifier = verifier if verifier is not None else AgeVerifier(verifier_url)
+    verify_endpoint = None
+
+    def __init__(self, *, default_next="/", session_key="is_adult"):
         self.default_next = default_next
         self.session_key = session_key
         self._pending_key = session_key + "_next"
-        self._session_id_key = session_key + "_session"
-        self.blueprint = Blueprint("agecheck_gate", __name__, url_prefix=url_prefix)
-        self._add_routes()
-
-    # ---- helpers for the host site -------------------------------------
 
     def is_adult(self):
         """True if this visitor has passed the check."""
@@ -108,12 +96,10 @@ class AgeGate:
                 if request.query_string:
                     target += "?" + request.query_string.decode("latin-1")
                 session[self._pending_key] = target
-                return redirect(url_for("agecheck_gate.verify_page"))
+                return redirect(url_for(self.verify_endpoint))
             return view(*args, **kwargs)
 
         return wrapper
-
-    # ---- routes ----------------------------------------------------------
 
     def _safe_next(self, value):
         """Only ever redirect to a path on this site, never to another site."""
@@ -126,6 +112,37 @@ class AgeGate:
         ):
             return value
         return self.default_next
+
+    def _passed(self):
+        """Record the pass and say where to go next."""
+        session[self.session_key] = True
+        return self._safe_next(session.pop(self._pending_key, None))
+
+
+class AgeGate(Gate):
+    """An age-check blueprint (phone wallet) plus an ``age_required`` decorator.
+
+    Args:
+        verifier_url: Base URL of the zk-age-verifier service. Give this or ``verifier``.
+        verifier: An object with ``start_session()`` and ``finish(session_id, response)``,
+            for tests or a custom client. Give this or ``verifier_url``.
+        url_prefix: Where the gate's routes live (default ``/age``).
+        default_next: Where to send a visitor after passing, when they came straight
+            to the gate rather than from a protected page. Must be a path on this site.
+        session_key: The session key that records a pass.
+    """
+
+    verify_endpoint = "agecheck_gate.verify_page"
+
+    def __init__(self, verifier_url=None, *, verifier=None, url_prefix="/age",
+                 default_next="/", session_key="is_adult"):
+        if (verifier_url is None) == (verifier is None):
+            raise ValueError("give exactly one of verifier_url or verifier")
+        super().__init__(default_next=default_next, session_key=session_key)
+        self.verifier = verifier if verifier is not None else AgeVerifier(verifier_url)
+        self._session_id_key = session_key + "_session"
+        self.blueprint = Blueprint("agecheck_gate", __name__, url_prefix=url_prefix)
+        self._add_routes()
 
     def _add_routes(self):
         bp = self.blueprint
@@ -179,6 +196,4 @@ class AgeGate:
             session.pop(self._session_id_key, None)
             if not ok:
                 return jsonify({"ok": False, "message": explain(detail)})
-            session[self.session_key] = True
-            target = self._safe_next(session.pop(self._pending_key, None))
-            return jsonify({"ok": True, "next": target})
+            return jsonify({"ok": True, "next": self._passed()})

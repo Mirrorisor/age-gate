@@ -374,8 +374,13 @@ machine, never through ZKPassport's API. Details: [passport/README.md](passport/
    in for the app and proves from a mock passport.
 
 What the site learns is only "18 or over": it drops the per-site identifier ZKPassport
-proofs carry, so visits cannot be linked. Every visit gets its own random scope, used
-once, so a proof captured from one visit is refused in any other.
+proofs carry, so visits cannot be linked. Every visit gets its own random scope, which the
+site accepts once and for 15 minutes, so a captured proof is refused on replay. To check the
+whole route in one command (mock passports: an adult, a minor and two replays):
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\e2e.ps1
+```
 
 Dev mode accepts only mock passports from the fictional "Zero Knowledge Republic". Keep it
 on: ZKPassport says it has not had an external audit, and neither has this service. A

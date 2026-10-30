@@ -23,9 +23,12 @@ Lets a visitor prove they are 18 or over with a passport or ID card through the
   refused with "The proof comes from a different domain than the one expected". Open the site at
   the same address as `SITE_ORIGIN` when testing.
 - Each visit to `/passport` gets a new random scope (`age-over-18:<random>`), kept in the session
-  and used for one try; proofs are made for it. Replaying a captured, valid proof in the same
-  session is refused (400, the scope is used up) and in a later visit is refused ("The proof uses a
-  different scope than the one expected").
+  for 15 minutes; proofs are made for it. The site records each scope when it is tried and refuses
+  it after that, even if the visitor resends the session cookie from before (the session lives in
+  the cookie, so removing the scope from it alone was not enough). A captured, valid proof is
+  refused when sent again in the same visit (400) and in a later visit ("The proof uses a
+  different scope than the one expected"). `scripts/e2e.ps1` checks all of this in one go. The
+  record is kept in memory, so a restart forgets scopes tried in the last 15 minutes.
 - Not tested: real passports, non-dev mode.
 
 Start it with the site:

@@ -103,6 +103,42 @@ def test_a_proof_without_a_visit_is_refused_before_it_is_checked(passport_on, mo
         assert "is_adult" not in s
 
 
+def test_keeping_the_old_cookie_does_not_give_a_second_try(passport_on, monkeypatch):
+    # The session is in the cookie, so a visitor can resend the cookie from before the finish.
+    monkeypatch.setattr(site, "passport_check", lambda *_: True)
+    client = site.app.test_client()
+    open_page(client)
+    old_cookie = client.get_cookie("session").value
+    assert client.post("/api/passport/finish", json={}).get_json()["ok"] is True
+    replay = site.app.test_client()
+    replay.set_cookie("session", old_cookie)
+    reply = replay.post("/api/passport/finish", json={})
+    assert reply.status_code == 400
+    with replay.session_transaction() as s:
+        assert "is_adult" not in s
+
+
+def test_a_visit_older_than_the_limit_is_refused(passport_on, monkeypatch):
+    monkeypatch.setattr(site, "passport_check", lambda *_: pytest.fail("should not be asked"))
+    client = site.app.test_client()
+    open_page(client)
+    with client.session_transaction() as s:
+        s["passport_scope_at"] -= site.PASSPORT_VISIT_SECONDS + 1
+    assert client.post("/api/passport/finish", json={}).status_code == 400
+
+
+def test_an_outage_leaves_the_try_for_later(passport_on, monkeypatch):
+    def down(*_):
+        raise requests.ConnectionError("down")
+
+    client = site.app.test_client()
+    open_page(client)
+    monkeypatch.setattr(site, "passport_check", down)
+    assert client.post("/api/passport/finish", json={}).status_code == 502
+    monkeypatch.setattr(site, "passport_check", lambda *_: True)
+    assert client.post("/api/passport/finish", json={}).get_json()["ok"] is True
+
+
 def test_a_visit_can_be_finished_only_once(passport_on, monkeypatch):
     monkeypatch.setattr(site, "passport_check", lambda *_: True)
     client = site.app.test_client()

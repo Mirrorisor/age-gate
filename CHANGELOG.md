@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Optional passport route: `/passport` lets a visitor prove 18+ with the ZKPassport app (QR code or link). The new `passport/` service checks the proofs locally (never through ZKPassport's API), rebuilds the query itself and drops ZKPassport's per-site identifier. Off unless `PASSPORT_URL` is set; dev mode (mock passports only) by default. Only the passport page may open WebSocket connections (to ZKPassport's relay).
+- A passport visit's scope is now recorded on the server when tried, so resending an old session cookie cannot reuse it, and it expires after 15 minutes. Found by the new `scripts/e2e.ps1`, which checks the passport route end to end with mock passports.
+- Every dependency is pinned to what was tested (image digests, `requirements-site.txt`, `passport/bun.lock`, the ZKPassport commit the test phone uses); CI also builds the passport service and the site image.
 - Passport proofs are tied to the visit that asked for them: every `/passport` visit gets its own random scope, usable once, so a captured proof cannot be replayed in another session.
 - `scripts/go-public.ps1` puts the stack on a temporary public https address (Cloudflare quick tunnel) for testing, and `-Stop` puts it back. New `TRUST_PROXY=1` setting reads the visitor address from the proxy header for rate limiting. Compose now passes `SITE_ORIGIN`, `SESSION_COOKIE_SECURE`, `TRUST_PROXY`, `RATE_LIMIT_PER_MIN` and `INVOICE_RETENTION_DAYS` through from `.env`.
 - Invoices untouched for 30 days are deleted (`INVOICE_RETENTION_DAYS`, 0 keeps them). Older invoice files are upgraded in place.

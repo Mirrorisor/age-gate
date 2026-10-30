@@ -271,6 +271,44 @@ This site learns only that, not your name, birthdate, nationality or passport nu
 """
 _passport_client = {}
 
+# How long a passport visit's scope stays usable after the page was opened.
+PASSPORT_VISIT_SECONDS = 15 * 60
+
+
+class UsedScopes:
+    """Scopes that have been tried, kept on the server.
+
+    The session lives in the visitor's cookie, so taking the scope out of the session is not
+    enough: a visitor who kept the old cookie could send it again. This records each scope as
+    it is tried and refuses it after that. Entries older than a visit are dropped, since the
+    session's own timestamp refuses those anyway. In memory, so a restart forgets them (one
+    worker process, like the rate limiter).
+    """
+
+    def __init__(self, keep_seconds):
+        self.keep_seconds = keep_seconds
+        self._used = {}
+        self._lock = threading.Lock()
+
+    def claim(self, scope):
+        """True the first time a scope is claimed, False after that."""
+        now = time.time()
+        with self._lock:
+            for old in [k for k, t in self._used.items() if now - t > self.keep_seconds]:
+                del self._used[old]
+            if scope in self._used:
+                return False
+            self._used[scope] = now
+            return True
+
+    def release(self, scope):
+        """Give a scope back when its try never happened (the check was unreachable)."""
+        with self._lock:
+            self._used.pop(scope, None)
+
+
+used_scopes = UsedScopes(PASSPORT_VISIT_SECONDS)
+
 
 def passport_check(proofs, result, domain, scope):
     """Ask the passport service whether the proofs show 18 or over. True or False."""
@@ -289,9 +327,11 @@ def passport_page():
         return "Passports are not set up on this site.", 404
     dev = "1" if os.environ.get("PASSPORT_DEV_MODE", "1") == "1" else "0"
     # A fresh scope for every visit: proofs are made for it, so a proof captured in one
-    # session is refused in any other.
+    # session is refused in any other. It can be tried once (see UsedScopes), within
+    # PASSPORT_VISIT_SECONDS.
     scope = "age-over-18:" + secrets.token_urlsafe(16)
     session["passport_scope"] = scope
+    session["passport_scope_at"] = time.time()
     return (
         PASSPORT_PAGE.replace("{dev}", dev).replace("{scope}", scope).replace("{nonce}", g.nonce)
     )
@@ -318,7 +358,8 @@ def passport_finish():
     body = request.get_json(silent=True) or {}
     domain = urlsplit(SITE_ORIGIN).hostname or "localhost"
     scope = session.get("passport_scope")
-    if not scope:
+    age = time.time() - session.get("passport_scope_at", 0)
+    if not scope or age > PASSPORT_VISIT_SECONDS or not used_scopes.claim(scope):
         return jsonify({
             "ok": False,
             "message": "Your check expired. Reload the page and try again.",
@@ -326,11 +367,13 @@ def passport_finish():
     try:
         ok = passport_check(body.get("proofs"), body.get("result"), domain, scope)
     except (requests.RequestException, ValueError):
+        used_scopes.release(scope)  # the check never ran, so the visit keeps its try
         return jsonify({
             "ok": False,
             "message": "The passport check is not reachable right now. Try again later.",
         }), 502
-    session.pop("passport_scope", None)  # one try per page load
+    session.pop("passport_scope", None)
+    session.pop("passport_scope_at", None)
     if not ok:
         return jsonify({"ok": False, "message": "The passport proof did not show you are 18 or over."})
     session["is_adult"] = True

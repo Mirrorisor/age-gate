@@ -10,6 +10,7 @@ git fetch -q --depth 1 https://github.com/zkpassport/zkpassport-packages.git "$Z
 echo "zkpassport commit: $(git log -1 --format='%h %ad' --date=short)"
 bun install --frozen-lockfile 2>&1 | tail -1
 bunx turbo run build --filter='@zkpassport/e2e^...' --filter='!onchain-credentials-contracts' --filter='!registry-contracts' 2>&1 | tail -40
-cp /phone/test-phone.ts packages/e2e/src/test-phone.ts
+cp /phone/*.ts packages/e2e/src/
 cd packages/e2e
-NODE_OPTIONS=--max-old-space-size=4096 bun src/test-phone.ts
+# Which script to run: test-phone.ts (answer one link) by default, or e2e.ts (full check).
+NODE_OPTIONS=--max-old-space-size=4096 bun "src/${1:-test-phone.ts}"

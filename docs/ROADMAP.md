@@ -14,6 +14,8 @@ reviewer can check, not just a promise. The gaps it starts from are in
 - A privacy audit in the test suite that fails if the site keeps more than `/privacy` says.
 - Dependencies pinned, CI building every part, a written threat model, and an internal
   self-review against it (38 attacks on the running stack, three low findings fixed): [SELF-REVIEW.md](SELF-REVIEW.md).
+- Payments we can verify: ZecCheckout reads the chain through our own Zebra node and lightwalletd
+  (`docker-compose.node.yml`, `ZC_LIGHTWALLETD`). Tested 2026-10-30: with `ZC_LIGHTWALLETD` pointing at our node, a 0.001 TAZ shielded payment from Zingo was detected and marked paid, and the site recorded it, with no public chain server in the path.
 - Shared state: invoices, used passport scopes and rate limits are kept in SQLite files, so they
   survive a restart and are shared by several workers (checked live with two gunicorn workers:
   exactly 30 of 35 requests got through, and the count survived a restart). Rate-limit rows
@@ -32,7 +34,7 @@ reviewer can check, not just a promise. The gaps it starts from are in
 
 ## Milestones
 
-Numbers stay fixed: finished milestones (M3, M6) moved up to "Done so far".
+Numbers stay fixed: finished milestones (M2, M3, M6) moved up to "Done so far".
 
 ### M1. External review
 
@@ -42,18 +44,6 @@ and ZecCheckout, against [THREAT-MODEL.md](THREAT-MODEL.md).
 - **Deliverable:** the reviewer's report, published, and a fix or a written answer for every
   finding.
 - **Done when:** every finding is closed or explained in the threat model.
-
-### M2. Payments we can verify
-
-ZecCheckout currently trusts a public lightwalletd it cannot check, so a hostile server could make
-an unpaid invoice look paid (threat T8).
-
-- **Deliverable:** the checkout reads the chain through a node we run (Zebra plus a lightwalletd
-  or Zaino in front of it), in the same Compose setup.
-- **Done when:** a testnet payment goes through with no public chain server in the path, shown by
-  the container's configuration and logs.
-- **Started:** `docker-compose.node.yml` now runs lightwalletd in front of our Zebra node, and
-  ZecCheckout takes `ZC_LIGHTWALLETD`. Its first sync and a payment through it are still to do.
 
 ### M4. Larger credentials (driving licences, photo ID)
 

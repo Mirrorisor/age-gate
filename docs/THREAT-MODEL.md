@@ -42,7 +42,7 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 | T5 | Forged "passed" cookie | Cookie signed with `SECRET_KEY`; a random key if none is set; the payment step refuses to start without a real one. | `tests/test_site_hardening.py` |
 | T6 | Fake "paid" webhook | HMAC signature with a 5-minute window, duplicate events ignored, and the site asks ZecCheckout for the invoice again and checks the amount before marking it paid. | `tests/test_payment.py`, `tests/test_hardening.py` |
 | T7 | Using someone else's paid invoice | The invoice number lives in the visitor's own session; logout clears the whole session. | `tests/test_privacy_audit.py` |
-| T8 | Hostile lightwalletd makes an unpaid invoice look paid | **Answered only when** `ZC_LIGHTWALLETD` points at our own node's lightwalletd; by default ZecCheckout still trusts the public server. A payment through our own node has not been tested yet. | Known gap until tested |
+| T8 | Hostile lightwalletd makes an unpaid invoice look paid | **Answered when** `ZC_LIGHTWALLETD` points at our own node's lightwalletd: Zebra checks the chain, so a fabricated block would not reach ZecCheckout. Without that setting ZecCheckout falls back to the public server. | Live test 2026-10-30 (payment through our node) |
 | T9 | Untrusted issuer accepted | The verifier trusts only the roots in its `certs` folder. Which roots go there is the operator's call. | Verifier tests; the fork's `--check-cert` option explains a refusal |
 | T10 | Mock passports accepted in production | `PASSPORT_DEV_MODE=1` is the default and accepts only mock passports; turning it off is a deliberate step the docs say not to take yet. | `passport/server.ts` |
 | T11 | Script injection, framing, leaks to other sites | Strict CSP with a nonce, no framing, `no-referrer`, no third-party loads (the passport page may also open `wss:` to the relay). | `tests/test_site_hardening.py`, `tests/test_privacy_audit.py` |
@@ -53,8 +53,9 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 
 ## Known gaps, stated plainly
 
-- **T8:** payments rest on a public lightwalletd that ZecCheckout does not verify. The fix is
-  to point ZecCheckout at a node we run.
+- **T8 depends on a setting:** payments are checked against our own node only when
+  `ZC_LIGHTWALLETD` points at it (and the node is running and synced). Left empty, ZecCheckout
+  uses the public testnet.zec.rocks, which it does not verify.
 - **Single machine:** SQLite files for invoices, used scopes and rate limits. Several workers on
   one machine can share them; several machines cannot. Fine for a demo, not for traffic.
 - **Shared cookies:** anyone holding a visitor's "passed" cookie gets in. Nothing session-based

@@ -125,8 +125,9 @@ result that is not an object, garbage proof objects: all refused with `ok: false
   127.0.0.1, so only this machine can reach it.
 - **The passport route depends on ZKPassport's relay.** If it drops a message, the check times out;
   it does not let anyone in.
-- **Payments still trust a public lightwalletd** until our own node's sync finishes and a payment
-  through it is tested (threat T8, roadmap M2).
+- **Payments trust a public lightwalletd unless `ZC_LIGHTWALLETD` is set.** Since this review a
+  payment through our own node has been tested (threat T8, roadmap M2); the public server remains
+  the fallback when the setting is empty.
 
 ## Not covered
 

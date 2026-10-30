@@ -295,8 +295,10 @@ ZecCheckout is a prototype and holds only a *viewing key*: it can see payments b
 spend. Read its own "Threat model" and "Limitations" before going further. In particular
 it uses a public lightwalletd server and does not verify proof-of-work. To read the chain
 from your own node instead, start `docker-compose.node.yml` (Zebra plus lightwalletd; the first
-sync takes hours) and, once lightwalletd has caught up, set
-`ZC_LIGHTWALLETD=http://host.docker.internal:9067` in `.env` and restart ZecCheckout.
+sync took about six hours here) and, once lightwalletd logs "Waiting for block" instead of
+"Adding block to cache", set `ZC_LIGHTWALLETD=http://host.docker.internal:9067` in `.env` and
+restart ZecCheckout. Its log then says `lightwalletd=http://host.docker.internal:9067`.
+Tested 2026-10-30: with `ZC_LIGHTWALLETD` pointing at our node, a 0.001 TAZ shielded payment from Zingo was detected and marked paid, and the site recorded it, with no public chain server in the path.
 
 ### Set it up
 

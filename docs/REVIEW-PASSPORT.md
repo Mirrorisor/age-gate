@@ -43,7 +43,8 @@ routes in `app.py`.
 ## How to run it
 
 - Tests: `venv/Scripts/python -m pytest` (`tests/test_passport.py` covers the routes).
-- End to end, one command: `scripts/e2e.ps1` (adult, minor, two replays, mock passports).
+- End to end, one command: `scripts/e2e.ps1` (adult, minor, two replays, mock passports), and
+  `scripts/e2e.ps1 -Example` for the same four checks through the reusable `PassportGate`.
 - Live, with a mock passport: see [passport/README.md](../passport/README.md) and
   [scripts/test-phone](../scripts/test-phone/README.md). Dev mode only.
 

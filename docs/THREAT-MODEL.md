@@ -59,6 +59,9 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
   one machine can share them; several machines cannot. Fine for a demo, not for traffic.
 - **Shared cookies:** anyone holding a visitor's "passed" cookie gets in. Nothing session-based
   can stop a visitor handing their cookie to someone else.
+- **The passport route depends on ZKPassport's relay** to carry proofs from the phone to the
+  browser. If it drops a message the check times out; it does not fail open. Seen once on
+  2026-10-30, when proofs that were sent never arrived; the same run passed on retry.
 - **A verifier we maintain ourselves:** upstream is quiet, so security fixes reach our fork
   only when we bring them over.
 - **No external review yet** of the site, the passport service, the verifier (pre-alpha by its

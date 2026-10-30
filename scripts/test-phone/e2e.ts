@@ -15,16 +15,20 @@ import { answerRequest } from "./phone"
 
 const SITE = (process.env.SITE_URL ?? "http://host.docker.internal:5000").replace(/\/$/, "")
 const DOMAIN = process.env.SITE_DOMAIN ?? "localhost"
+// The main site's paths by default; the reusable PassportGate uses /passport-check/...
+const PAGE = process.env.PASSPORT_PAGE ?? "/passport"
+const START = process.env.PASSPORT_START ?? "/api/passport/start"
+const FINISH = process.env.PASSPORT_FINISH ?? "/api/passport/finish"
 const TIMEOUT_MS = 10 * 60 * 1000
 
 type Visit = { cookie: string; scope: string }
 type Proofs = { proofs: unknown; result: unknown }
 
 async function openVisit(): Promise<Visit> {
-  const page = await fetch(`${SITE}/passport`)
-  if (page.status !== 200) throw new Error(`/passport answered ${page.status}`)
-  if (page.headers.get("set-cookie")) throw new Error("Just visiting /passport set a cookie")
-  const response = await fetch(`${SITE}/api/passport/start`, { method: "POST" })
+  const page = await fetch(`${SITE}${PAGE}`)
+  if (page.status !== 200) throw new Error(`${PAGE} answered ${page.status}`)
+  if (page.headers.get("set-cookie")) throw new Error(`Just visiting ${PAGE} set a cookie`)
+  const response = await fetch(`${SITE}${START}`, { method: "POST" })
   const scope = ((await response.json()) as { scope?: string }).scope
   const cookie = response.headers.get("set-cookie")?.split(";")[0]
   if (!scope || !cookie) throw new Error("Start gave no scope or no session cookie")
@@ -32,7 +36,7 @@ async function openVisit(): Promise<Visit> {
 }
 
 async function finish(visit: Visit, body: Proofs) {
-  const response = await fetch(`${SITE}/api/passport/finish`, {
+  const response = await fetch(`${SITE}${FINISH}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: visit.cookie },
     body: JSON.stringify(body),
@@ -41,8 +45,10 @@ async function finish(visit: Visit, body: Proofs) {
   return { status: response.status, ok: reply.ok === true, message: reply.message ?? "" }
 }
 
+type Attempt = { proofs: Proofs | null; why: string }
+
 /** Opens a request for the visit's scope and has the mock phone answer it. */
-async function prove(visit: Visit, dateOfBirth: string): Promise<Proofs | null> {
+async function prove(visit: Visit, dateOfBirth: string): Promise<Attempt> {
   const builder = await new ZKPassport(DOMAIN).request({
     name: "Age check",
     logo: "",
@@ -52,14 +58,19 @@ async function prove(visit: Visit, dateOfBirth: string): Promise<Proofs | null> 
     devMode: true,
   })
   const { url, onSuccess, onError, onReject } = builder.gte("age", 18).done()
-  const outcome = new Promise<Proofs | null>((resolve) => {
-    onSuccess(({ proofs, result }) => resolve({ proofs, result }))
-    onError(() => resolve(null))
-    onReject(() => resolve(null))
-    setTimeout(() => resolve(null), TIMEOUT_MS)
+  // Why no proofs arrived matters: a relay hiccup is not the same failure as a proof that
+  // could not be made, so each way out says which it was.
+  const outcome = new Promise<Attempt>((resolve) => {
+    onSuccess(({ proofs, result }) => resolve({ proofs: { proofs, result }, why: "" }))
+    onError((error) => resolve({ proofs: null, why: `the request reported an error: ${error}` }))
+    onReject(() => resolve({ proofs: null, why: "the request was rejected" }))
+    setTimeout(
+      () => resolve({ proofs: null, why: "the phone sent its proofs but they never arrived through ZKPassport's relay (timed out)" }),
+      TIMEOUT_MS,
+    )
   })
   const sent = await answerRequest(url, new Date(dateOfBirth))
-  return sent ? outcome : null
+  return sent ? outcome : { proofs: null, why: "the mock phone could not make a proof" }
 }
 
 const results: [string, boolean, string][] = []
@@ -70,9 +81,10 @@ function check(name: string, passed: boolean, detail: string) {
 
 // 1. Adult
 const adultVisit = await openVisit()
-const adultProofs = await prove(adultVisit, "1995-11-12")
+const adult = await prove(adultVisit, "1995-11-12")
+const adultProofs = adult.proofs
 if (!adultProofs) {
-  check("adult gets in", false, "the mock phone could not make a proof")
+  check("adult gets in", false, adult.why)
 } else {
   const reply = await finish(adultVisit, adultProofs)
   check("adult gets in", reply.ok, `${reply.status} ${reply.ok ? "ok" : reply.message}`)
@@ -88,12 +100,13 @@ if (!adultProofs) {
 
 // 2. Minor
 const minorVisit = await openVisit()
-const minorProofs = await prove(minorVisit, "2015-01-01")
+const minor = await prove(minorVisit, "2015-01-01")
+const minorProofs = minor.proofs
 if (minorProofs) {
   const reply = await finish(minorVisit, minorProofs)
   check("minor is kept out", !reply.ok, `proofs were made! site said ${reply.status}`)
 } else {
-  check("minor is kept out", true, "no proof could be made")
+  check("minor is kept out", true, minor.why)
 }
 
 const failed = results.filter(([, passed]) => !passed).length

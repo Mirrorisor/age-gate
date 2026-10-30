@@ -59,3 +59,6 @@ app.register_blueprint(passport.blueprint)
   an outside review.
 - Options: `url_prefix` (default `/passport-check`), `default_next`, `session_key`,
   `dev_mode`, `scopes_db`, `visit_seconds`.
+- Checked end to end with mock passports by `scripts/e2e.ps1 -Example`, which runs
+  `examples/passport_site.py`: an adult gets in, a minor cannot, and a captured proof is
+  refused on replay, in the same visit and in a new one.

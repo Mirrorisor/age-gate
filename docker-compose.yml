@@ -16,11 +16,11 @@ services:
     restart: unless-stopped
     # Our fork (https://github.com/Mirrorisor/zk-age-verifier): upstream plus the refused-
     # certificate log, the safer trust-list loader, --check-cert and the test clock fix.
-    # Pinned to the build tested on 2026-10-30. To update: docker pull
+    # Pinned to the build tested on 2026-10-30 (fork 623ce86). To update: docker pull
     # ghcr.io/mirrorisor/zk-age-verifier:fork, test it, then copy its digest here
     # (docker image inspect --format '{{index .RepoDigests 0}}' ...).
     # To compare with upstream's image, add -f docker-compose.upstream.yml.
-    image: ghcr.io/mirrorisor/zk-age-verifier:fork@sha256:dd1a60b8550f9e084abb70b3070abd851816a3fb08940d4f067df4df1b1c6f1f
+    image: ghcr.io/mirrorisor/zk-age-verifier:fork@sha256:57a336057b231d7f474e6268bf473303bac29335e2fd286421265e0883942057
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

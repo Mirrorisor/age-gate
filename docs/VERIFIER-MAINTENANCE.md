@@ -46,5 +46,7 @@ The site's own packages and the passport service's are audited by CI every week
 - charset-normalizer 3.4.8 had been yanked; upgraded to 3.5.2.
 - The fork's 289 tests pass with 100% coverage, and pip-audit finds nothing in the new lock.
 - The site's packages and the passport service's packages: no known vulnerabilities.
-- Published and pinned: not yet. The fix is on the fork's `security-bump-anyio-certifi`
-  branch; the site still runs the earlier image until it is pushed and pinned.
+- Published and pinned: fork commit 623ce86 pushed to its `main`; its CI and "Fork image"
+  workflow passed; `docker-compose.yml` now pins image `sha256:57a33605...`. Checked: the
+  verifier reports ref 623ce86 with anyio 4.15.1 and certifi 2026.10.23, `scripts/zkdemo.py`
+  proves and verifies in the new image and rejects a false claim, and the site's 168 tests pass.

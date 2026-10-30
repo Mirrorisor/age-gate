@@ -65,7 +65,8 @@ works from a real wallet.
   limit and its cause are documented upstream.
 - **Started:** the limit is measured and explained in [CREDENTIAL-SIZE.md](CREDENTIAL-SIZE.md):
   a 2,533-byte MSO, about 62 fields, decided by the number of fields and not their size. It also
-  found a crash in Longfellow's C++ prover on nested fields, not yet reported upstream.
+  found a crash in Longfellow's C++ prover on nested fields, reported as
+  [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
 
 ### M5. A careful real-credential pilot
 

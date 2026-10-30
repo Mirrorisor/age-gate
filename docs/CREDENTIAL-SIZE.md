@@ -43,7 +43,8 @@ A credential whose tagged MSO is longer than 2,533 bytes cannot be proved with t
 - The crash is in proving, which runs in the wallet, not in the verifier. Handed a garbage proof,
   the verifier's side raised a clean `VerifierError` (one input, not an exhaustive test).
 - It is a bug in Longfellow's C++ prover, not a size limit: the Rust backend handles the same
-  credential. Not yet reported upstream.
+  credential. Reported upstream as
+  [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
 
 ## What would make larger credentials work
 
@@ -54,7 +55,7 @@ A credential whose tagged MSO is longer than 2,533 bytes cannot be proved with t
    verifier must both use the same circuit, so it needs Longfellow, wallet makers and verifier
    maintainers to agree. This project can ask, not decide.
 3. **Fix the C++ prover crash** upstream, so mDLs with nested fields at least fail cleanly, or
-   prove when they fit.
+   prove when they fit. Reported as [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
 
 ## Reproduce
 

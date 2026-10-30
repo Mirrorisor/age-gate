@@ -46,6 +46,12 @@ Reviewing my own code, I found a gap: nothing tied a proof to the visit that ask
 
 Two honest limits. This is still mock passports only, and I left it that way on purpose: ZKPassport says it has not had an external audit, and neither has my side. And while writing the tests I found one of mine that only passed when the verifier was switched off, because a running verifier finished the first upload and cleared the session before the second one was checked. It was a bad test, not a bad site, but I would not have found it without running everything on my own machine.
 
+## Update: a fix in the wallet's test app
+
+When I tried the Multipaz test app's ZK-friendly driving licence on my phone, it failed to make a proof, with an error code that told me nothing. I reported it to Multipaz ([#2125](https://github.com/openwallet-foundation/multipaz/issues/2125)) with what I had found: the proof circuit is small, and a document with about 63 plain fields was already too big for it. A maintainer worked out the cause for the ZK-friendly licence. The circuit expects a document key entry with nothing else in it, and the test app was adding a second entry for "key authorizations". My small change makes the test app issue that licence without them ([#2126](https://github.com/openwallet-foundation/multipaz/pull/2126)). It was reviewed, I added the issue link, the sign-off and a comment saying it is temporary, and it was merged the next day.
+
+It is a workaround. The real bug is in the proof library, which should accept key authorizations, and the maintainer filed that separately ([longfellow-zk #220](https://github.com/longfellow-zk/longfellow-zk/issues/220), still open when I looked). When it is fixed the workaround can go.
+
 ## What this is not
 
 It isn't secure enough for real users or real money. The verifier calls itself pre-alpha. ZecCheckout is a prototype that uses a public server and doesn't verify proof-of-work, so a hostile server could make an unpaid invoice look paid. For anything real you'd want your own node, real issuers, a proper database, and a review by someone who does this for a living. I also haven't tested any real government-issued credential, so I can't say yet which wallets and issuers will exist for Australians.

@@ -10,19 +10,15 @@
  *   4. replay in a new visit      -> refused (different scope)
  * Exits 0 only if all four hold.
  */
-import { ZKPassport } from "@zkpassport/sdk"
-import { answerRequest } from "./phone"
+import { type Proofs, prove } from "./browser"
 
 const SITE = (process.env.SITE_URL ?? "http://host.docker.internal:5000").replace(/\/$/, "")
-const DOMAIN = process.env.SITE_DOMAIN ?? "localhost"
 // The main site's paths by default; the reusable PassportGate uses /passport-check/...
 const PAGE = process.env.PASSPORT_PAGE ?? "/passport"
 const START = process.env.PASSPORT_START ?? "/api/passport/start"
 const FINISH = process.env.PASSPORT_FINISH ?? "/api/passport/finish"
-const TIMEOUT_MS = 10 * 60 * 1000
 
 type Visit = { cookie: string; scope: string }
-type Proofs = { proofs: unknown; result: unknown }
 
 async function openVisit(): Promise<Visit> {
   const page = await fetch(`${SITE}${PAGE}`)
@@ -45,34 +41,6 @@ async function finish(visit: Visit, body: Proofs) {
   return { status: response.status, ok: reply.ok === true, message: reply.message ?? "" }
 }
 
-type Attempt = { proofs: Proofs | null; why: string }
-
-/** Opens a request for the visit's scope and has the mock phone answer it. */
-async function prove(visit: Visit, dateOfBirth: string): Promise<Attempt> {
-  const builder = await new ZKPassport(DOMAIN).request({
-    name: "Age check",
-    logo: "",
-    purpose: "Prove you are 18 or over. Nothing else is shared.",
-    scope: visit.scope,
-    mode: "fast",
-    devMode: true,
-  })
-  const { url, onSuccess, onError, onReject } = builder.gte("age", 18).done()
-  // Why no proofs arrived matters: a relay hiccup is not the same failure as a proof that
-  // could not be made, so each way out says which it was.
-  const outcome = new Promise<Attempt>((resolve) => {
-    onSuccess(({ proofs, result }) => resolve({ proofs: { proofs, result }, why: "" }))
-    onError((error) => resolve({ proofs: null, why: `the request reported an error: ${error}` }))
-    onReject(() => resolve({ proofs: null, why: "the request was rejected" }))
-    setTimeout(
-      () => resolve({ proofs: null, why: "the phone sent its proofs but they never arrived through ZKPassport's relay (timed out)" }),
-      TIMEOUT_MS,
-    )
-  })
-  const sent = await answerRequest(url, new Date(dateOfBirth))
-  return sent ? outcome : { proofs: null, why: "the mock phone could not make a proof" }
-}
-
 const results: [string, boolean, string][] = []
 function check(name: string, passed: boolean, detail: string) {
   results.push([name, passed, detail])
@@ -81,7 +49,7 @@ function check(name: string, passed: boolean, detail: string) {
 
 // 1. Adult
 const adultVisit = await openVisit()
-const adult = await prove(adultVisit, "1995-11-12")
+const adult = await prove(adultVisit.scope, "1995-11-12")
 const adultProofs = adult.proofs
 // For docs/SELF-REVIEW.md: keep a real, valid mock-passport proof to tamper with later.
 if (adultProofs && process.env.PROOF_OUT) {
@@ -104,7 +72,7 @@ if (!adultProofs) {
 
 // 2. Minor
 const minorVisit = await openVisit()
-const minor = await prove(minorVisit, "2015-01-01")
+const minor = await prove(minorVisit.scope, "2015-01-01")
 const minorProofs = minor.proofs
 if (minorProofs) {
   const reply = await finish(minorVisit, minorProofs)

@@ -106,6 +106,11 @@ Not everyone has a passport or a wallet credential, and not every site is built 
   credential type next to the phone wallet and passport routes.
 - **Done when:** a non-Flask example site (for example a few lines of Node or PHP) passes the
   same end-to-end checks in CI, and adding a credential type is documented with a worked example.
+- **Built (2026-10-31):** `agecheck.service` with a signed-token handoff, a Node example site with
+  no dependencies, `docs/SERVICE.md` (the interface, and how to add a credential type, with
+  `PassportGate` as the worked example), 24 unit tests, and `scripts/test-phone/e2e-handoff.ts`,
+  which passed live: an adult goes from the Node site through the service and back in; a reused,
+  stolen or tampered token is refused; a minor gets no token. Added to the e2e CI workflow.
 
 ### M9. Standards alignment
 

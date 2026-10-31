@@ -49,6 +49,9 @@ defences are in [HARDENING.md](HARDENING.md), and of the passport route in
 | T12 | Flooding or huge uploads | Per-address rate limits; 64 KB body limit except proof uploads (4 MB mdoc, 8 MB passport). | `tests/test_site_hardening.py` |
 | T13 | Tracking a visitor across visits | No accounts; the passport route drops ZKPassport's per-site identifier; visiting a page sets no cookie. | `tests/test_privacy_audit.py` |
 | T14 | A dependency changes under us | Images pinned by digest, Python packages and `bun.lock` pinned, CI builds both images. | CI (`tests.yml`) |
+| T16 | Forged or reused service token (verification service, `docs/SERVICE.md`) | HMAC-SHA256 over the token with a secret shared by site and service; 120-second expiry; bound to the site's origin and to a nonce the site forgets on first use. | `tests/test_service.py`; `scripts/test-phone/e2e-handoff.ts` (reused, stolen, tampered) |
+| T17 | The service used to redirect visitors elsewhere | It only ever redirects to the one configured `CALLBACK_URL`; a `return_to` in the request is ignored. | `tests/test_service.py` |
+| T18 | Token leaking through the URL | Short-lived and single-use; the service and the example site send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. A site that logs full URLs would log a dead token. | `tests/test_service.py` |
 | T15 | Exposed internal services | Verifier, checkout and site bind to 127.0.0.1; the passport service publishes no port. This matters: the verifier has no login and an unauthenticated development route, `/debug/transcript`. | `docker-compose.yml` |
 
 ## Known gaps, stated plainly

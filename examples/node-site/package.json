@@ -1,0 +1,6 @@
+{
+  "name": "age-gate-node-example",
+  "private": true,
+  "type": "module",
+  "description": "A site in Node, no dependencies, using the age-verification service. Test use only."
+}

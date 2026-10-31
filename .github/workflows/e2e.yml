@@ -28,7 +28,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [site, example]
+        # site: the age-gate site. example: the reusable PassportGate. node: the verification
+        # service handing a token to a site written in Node (examples/node-site).
+        target: [site, example, node]
     env:
       COMPOSE_PROJECT_NAME: age-gate
       BUN_IMAGE: oven/bun:1.3.8@sha256:371d30538b69303ced927bb5915697ac7e2fa8cb409ee332c66009de64de5aa3
@@ -44,6 +46,8 @@ jobs:
             echo "PASSPORT_URL=http://passport:8100"
             echo "PASSPORT_DEV_MODE=1"
             echo "SITE_ORIGIN=http://localhost:5000"
+            echo "SERVICE_CALLBACK_URL=http://node-site:3000/age-callback"
+            echo "SERVICE_SECRET=$(openssl rand -hex 24)"
           } > .env
 
       - name: Start the site and the passport service
@@ -57,9 +61,28 @@ jobs:
             -e PASSPORT_URL=http://passport:8100 -e SITE_DOMAIN=localhost \
             age-gate-site gunicorn --bind 0.0.0.0:5000 --chdir /src/examples passport_site:app
 
+      - name: Start the verification service and the Node site
+        if: matrix.target == 'node'
+        run: |
+          docker compose --profile service --profile passport up -d --build --no-deps agecheck-service
+          secret=$(grep '^SERVICE_SECRET=' .env | cut -d= -f2-)
+          docker run -d --name node-site --network age-gate_default \
+            -v "$PWD/examples/node-site:/app:ro" -w /app \
+            -e SERVICE_URL=http://agecheck-service:8200 -e SERVICE_SECRET="$secret" \
+            -e SITE_ORIGIN=http://node-site:3000 \
+            node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 \
+            node server.js
+
       - name: Choose the paths to check
         run: |
-          if [ "${{ matrix.target }}" = example ]; then
+          echo "SCRIPT=e2e.ts" >> "$GITHUB_ENV"
+          if [ "${{ matrix.target }}" = node ]; then
+            echo "SCRIPT=e2e-handoff.ts" >> "$GITHUB_ENV"
+            echo "NODE_SITE_URL=http://node-site:3000" >> "$GITHUB_ENV"
+            echo "SERVICE_URL=http://agecheck-service:8200" >> "$GITHUB_ENV"
+            echo "SITE_URL=http://node-site:3000" >> "$GITHUB_ENV"
+            echo "PASSPORT_PAGE=/" >> "$GITHUB_ENV"
+          elif [ "${{ matrix.target }}" = example ]; then
             echo "SITE_URL=http://age-gate-example:5000" >> "$GITHUB_ENV"
             echo "PASSPORT_PAGE=/passport-check/verify" >> "$GITHUB_ENV"
             echo "PASSPORT_START=/passport-check/start" >> "$GITHUB_ENV"
@@ -88,12 +111,16 @@ jobs:
           for attempt in 1 2; do
             if docker run --rm --network age-gate_default \
                  -e SITE_URL -e PASSPORT_PAGE -e PASSPORT_START -e PASSPORT_FINISH \
+                 -e NODE_SITE_URL -e SERVICE_URL \
                  -v "$PWD/scripts/test-phone:/phone:ro" "$BUN_IMAGE" \
-                 bash /phone/test-phone.sh e2e.ts; then exit 0; fi
+                 bash /phone/test-phone.sh "$SCRIPT"; then exit 0; fi
             echo "Attempt $attempt failed."
           done
           exit 1
 
       - name: Logs, if anything failed
         if: failure()
-        run: docker compose logs site passport; docker logs age-gate-example 2>/dev/null || true
+        run: |
+          docker compose --profile service --profile passport logs site passport agecheck-service
+          docker logs age-gate-example 2>/dev/null || true
+          docker logs node-site 2>/dev/null || true

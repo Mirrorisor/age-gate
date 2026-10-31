@@ -454,6 +454,10 @@ Both age checks come as drop-in Flask blueprints: `AgeGate` (phone wallet) and `
 (passport), which share one pass. A few lines add them to an existing site; see
 [docs/REUSE.md](docs/REUSE.md) and `examples/passport_site.py`.
 
+For a site in any other language there is a standalone verification service: the site sends the
+visitor to it, and gets back a short-lived signed "over 18" token it checks in a few lines. See
+[docs/SERVICE.md](docs/SERVICE.md) and `examples/node-site/server.js` (Node, no dependencies).
+
 ## Threat model
 
 What the system protects, how far each part is trusted, and the known gaps:

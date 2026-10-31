@@ -1,5 +1,8 @@
 # Using the age gate in your own Flask site
 
+Not on Flask? The standalone verification service works with a site in any language:
+[SERVICE.md](SERVICE.md).
+
 `agecheck.flask_gate` adds a "prove you are over 18" step to any Flask site. It talks to a
 running zk-age-verifier; see the README for how to start one. This is an experiment on test
 certificates (see `docs/HARDENING.md` for what it does and does not protect).

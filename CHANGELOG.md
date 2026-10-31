@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A standalone verification service (`agecheck.service`, `docs/SERVICE.md`) for sites in any
+  language: the site sends the visitor to it with a one-time code and gets back a signed, 120-second
+  "over 18" token bound to its origin and that code. `examples/node-site` checks it in Node with no
+  dependencies. Compose profile `service`. The e2e CI workflow now also runs it end to end.
+- The rate limiter moved to `agecheck.ratelimit`, shared by the site and the service.
+
 ## 0.2.0 (2026-10-31)
 
 Still a test-only demo: test certificates, mock passports, Zcash testnet. Highlights:

@@ -72,6 +72,33 @@ services:
       PASSPORT_DEV_MODE: ${PASSPORT_DEV_MODE:-1}
       PASSPORT_RPC_URL: ${PASSPORT_RPC_URL:-}
 
+  # The standalone verification service, for a site in any language (docs/SERVICE.md).
+  # Only starts with:  docker compose --profile service --profile passport up -d
+  # Needs SERVICE_CALLBACK_URL and SERVICE_SECRET in .env (and the same secret on the site).
+  agecheck-service:
+    profiles: ["service"]
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile.site
+    command: ["gunicorn", "--bind", "0.0.0.0:8200", "--workers", "1", "--threads", "4",
+              "agecheck.service:create_app()"]
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - servicedata:/data
+    environment:
+      CALLBACK_URL: ${SERVICE_CALLBACK_URL:-}
+      SERVICE_SECRET: ${SERVICE_SECRET:-}
+      SERVICE_DOMAIN: ${SERVICE_DOMAIN:-localhost}
+      PASSPORT_URL: ${SERVICE_PASSPORT_URL:-http://passport:8100}
+      VERIFIER_URL: ${SERVICE_VERIFIER_URL:-}
+      PASSPORT_DEV_MODE: ${PASSPORT_DEV_MODE:-1}
+      SCOPES_DB: /data/scopes.db
+      RATE_LIMIT_DB: /data/ratelimit.db
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+
   # A stand-in for ZecCheckout so the payment step can be tried with no wallet.
   # Only starts with:  docker compose --profile fakepay up --build
   fakepay:
@@ -119,4 +146,5 @@ services:
 
 volumes:
   sitedata:
+  servicedata:
   zecdata:

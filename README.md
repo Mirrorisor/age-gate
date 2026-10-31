@@ -1,15 +1,22 @@
 # age-gate: a zero-knowledge age check demo
 
-A small learning project: a Flask website that gates a page behind a
-zero-knowledge "over 18" check, using the experimental
-[zk-age-verifier](https://pypi.org/project/zk-age-verifier/) service
-(Longfellow ZK proofs over ISO mdoc, via the W3C Digital Credentials API).
+A Flask website that gates a page behind a zero-knowledge "over 18" check, two ways: a phone
+wallet (Longfellow ZK proofs over ISO mdoc, via the W3C Digital Credentials API and the
+experimental [zk-age-verifier](https://pypi.org/project/zk-age-verifier/)), or a passport
+through the ZKPassport app. An optional shielded Zcash payment can follow.
 
 The site never sees a birthdate or an ID. It only learns one thing: "this person
 proved they are over 18."
 
+**Where it is going:** an open-source, privacy-first age-verification toolkit that any site can
+run itself, so no central party ever learns who verified or where. The checks already come as
+drop-in pieces for other Flask sites ([docs/REUSE.md](docs/REUSE.md)); the
+[roadmap](docs/ROADMAP.md) covers the rest: an independent review, real credentials, more ways
+to prove age, standards, and trusted issuer lists.
+
 > **Status: experimental demo.** The verifier itself says it is pre-alpha and
-> should not be relied on. Do not use this to protect real users or content.
+> should not be relied on. Test certificates, mock passports and the Zcash testnet only.
+> Do not use this to protect real users or content yet.
 
 ## What it looks like
 

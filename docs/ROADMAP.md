@@ -4,6 +4,20 @@ Where the project stands and what funding would pay for. Each milestone ends in 
 reviewer can check, not just a promise. The gaps it starts from are in
 [THREAT-MODEL.md](THREAT-MODEL.md).
 
+## The goal
+
+An open-source, privacy-first **age-verification toolkit that any site can run itself**: a
+visitor proves "18 or over" with whatever credential they have, the site learns nothing else,
+and no central party learns who verified or where.
+
+A toolkit rather than a hosted service, on purpose. Each site runs its own copy, so there is no
+middleman who sees every check, and the project publishes software rather than handling other
+people's visitors. A hosted option could come later if sites ask for one; it would need its own
+design and its own review.
+
+The order matters: an independent review (M1) and a careful real-credential pilot (M5) come
+before any of the toolkit milestones (M8 to M11) are offered for real use.
+
 ## Done so far (October 2026, unfunded)
 
 - A website that gates a page behind a zero-knowledge "over 18" check from a phone wallet,
@@ -83,7 +97,45 @@ responded to the fixes offered to it, so this project runs and maintains its own
   The first run fixed five known vulnerabilities in the fork's dependencies, and CI now audits
   the site's and the passport service's packages every week.
 
+### M8. More ways to prove age, and to plug it in
+
+Not everyone has a passport or a wallet credential, and not every site is built on Flask.
+
+- **Deliverable:** a small standalone verification service with a documented HTTP interface, so
+  a site in any language can use it, alongside the Flask gates; and a clear way to add a new
+  credential type next to the phone wallet and passport routes.
+- **Done when:** a non-Flask example site (for example a few lines of Node or PHP) passes the
+  same end-to-end checks in CI, and adding a credential type is documented with a worked example.
+
+### M9. Standards alignment
+
+Sites will ask whether the toolkit meets the frameworks that apply to them.
+
+- **Deliverable:** a written comparison against the published standards and frameworks the
+  toolkit touches (the EU age-verification blueprint, ISO/IEC 18013-5 and -7 for mdoc, and the
+  Australian online-safety requirements in force at the time), listing what is met, what is not,
+  and what would be needed. Reviewed by someone qualified where it touches law.
+- **Done when:** the comparison is published, and every gap it finds is either closed or listed
+  in the threat model.
+
+### M10. Trusted issuer lists
+
+Today each site trusts whatever certificates are in a folder, set up by hand.
+
+- **Deliverable:** a maintained, checked list of the issuers a site may choose to trust, with a
+  tool to fetch and verify it (building on the fork's pinned, service-only trust-list loading),
+  and clear guidance on choosing issuers.
+- **Done when:** a fresh install can trust a real issuer by following the guide, with the list's
+  integrity checked, and the guide says plainly what trusting an issuer means.
+
+### M11. A path for people without a supported credential
+
+- **Deliverable:** guidance and hooks for sites to offer another method to people who cannot use
+  the zero-knowledge routes, without the toolkit itself collecting identity documents.
+- **Done when:** the docs and the gates show how a site adds such a path, and the privacy page
+  explains which route a visitor took and what each route reveals.
+
 ## Not planned
 
-Accounts, identity beyond "over 18", storing proofs, and anything on mainnet before M1 and M2
-are done.
+Accounts, identity beyond "over 18", storing proofs, collecting identity documents, a hosted
+service before the toolkit is reviewed, and anything on mainnet before M1 and M2 are done.

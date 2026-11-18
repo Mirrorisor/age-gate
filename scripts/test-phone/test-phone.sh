@@ -3,8 +3,11 @@
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq git ca-certificates >/dev/null
-# Pinned to the zkpassport-packages commit this was tested with (2026-10-30).
-ZKP_COMMIT=${ZKP_COMMIT:-a70fe82afe291950db096809bb006153cb157c8b}
+# Pinned zkpassport-packages commit (2026-11-16). It must be new enough to hash every
+# certificate type in ZKPassport's live Sepolia registry: since mid-November 2026 it also
+# holds Aadhaar (UIDAI) certificates, and older commits fail with "Validation failed for
+# packaged certificates" before proving.
+ZKP_COMMIT=${ZKP_COMMIT:-1045a75e3d073d0e80ed49e3d5bd53e6fdebf298}
 git init -q /work && cd /work
 git fetch -q --depth 1 https://github.com/zkpassport/zkpassport-packages.git "$ZKP_COMMIT" && git checkout -q FETCH_HEAD
 echo "zkpassport commit: $(git log -1 --format='%h %ad' --date=short)"

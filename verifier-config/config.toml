@@ -1,4 +1,6 @@
 [service]
+# debug shows why a credential was refused (untrusted_issuer); use info once live.
+log_level = "debug"
 expected_origin = "http://localhost:5000"
 
 [[trust.sources]]

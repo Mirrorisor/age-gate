@@ -7,6 +7,10 @@
   "over 18" token bound to its origin and that code. `examples/node-site` checks it in Node with no
   dependencies. Compose profile `service`. The e2e CI workflow now also runs it end to end.
 - The rate limiter moved to `agecheck.ratelimit`, shared by the site and the service.
+- The verifier is the fork on upstream 0.5.0 (pylongfellow 0.8.0, which fixes the prover crash on
+  licence data, pylongfellow#82). The example verifier config logs at debug level, so refused
+  certificates are shown.
+- The own-node setup runs Zebra 7.1.0. 7.0.0 is out of support and restarted in a loop.
 
 ## 0.2.0 (2026-10-31)
 

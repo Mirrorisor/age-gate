@@ -1,0 +1,25 @@
+name: docs-check
+on:
+  push:
+    branches: [docs-check]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMG: ghcr.io/mirrorisor/zk-age-verifier@sha256:12edd64d73920482bf17a0098cc322473ad213477de886fedac5f7886e2422c9
+    steps:
+      - uses: actions/checkout@v4
+      - name: pylongfellow version
+        run: docker run --rm --entrypoint /app/.venv/bin/python $IMG -c "import importlib.metadata as m; print('PYLONGFELLOW', m.version('pylongfellow'))"
+      - name: Measure (current image)
+        run: docker run --rm -v "$PWD/scripts:/demo:ro" --entrypoint /app/.venv/bin/python $IMG -u /demo/measure_mso_limit.py 2>&1 | sed 's/^/MEASURE /' ; echo "MEASURE exit ${PIPESTATUS[0]}"
+      - name: check-cert through compose
+        run: |
+          mkdir -p vc/certs
+          cp tests/integration/credentials/test-anchor.pem vc/certs/
+          printf '[service]\nexpected_origin = "http://localhost:5000"\n\n[[trust.sources]]\npem = "/config/certs"\n' > vc/config.toml
+          printf 'SECRET_KEY=x\nVERIFIER_CONFIG_DIR=%s/vc\n' "$PWD" > .env
+          docker compose run --rm --no-deps --entrypoint zk-age-verifier verifier --config /config/config.toml --check-cert /config/certs/test-anchor.pem 2>&1 | sed 's/^/CHECK /'; echo "CHECK exit ${PIPESTATUS[0]}"

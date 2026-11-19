@@ -14,10 +14,10 @@
 services:
   verifier:
     restart: unless-stopped
-    # Our fork (https://github.com/Mirrorisor/zk-age-verifier): upstream 0.5.0 (pylongfellow
-    # 0.8.0) plus the safer trust-list loader, several ID kinds, --check-cert and the test clock
-    # fix. Pinned to the build of fork c01ff75 (2026-11-18). To update: docker pull
-    # ghcr.io/mirrorisor/zk-age-verifier:fork, test it, then copy its digest here
+    # Our fork (https://github.com/Mirrorisor/zk-age-verifier): upstream 0.5.0 and #78
+    # (pylongfellow 0.8.0) plus signed and fresh trust lists, VICAL issuer lists, several ID
+    # kinds and --check-cert. Pinned to the build of fork ac1f3fe (2026-11-19). To update:
+    # docker pull ghcr.io/mirrorisor/zk-age-verifier:fork, test it, then copy its digest here
     # (docker image inspect --format '{{index .RepoDigests 0}}' ...).
     # To compare with upstream's image, add -f docker-compose.upstream.yml.
     image: ghcr.io/mirrorisor/zk-age-verifier@sha256:3d27f774e007a034511406feac823ad659f7e8063c35e452ad7d7ee3d62f8064

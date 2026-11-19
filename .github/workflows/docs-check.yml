@@ -19,6 +19,7 @@ jobs:
       - name: check-cert through compose
         run: |
           mkdir -p vc/certs
+          chmod a+w scripts
           docker run --rm -v "$PWD/scripts:/demo" --entrypoint /app/.venv/bin/python $IMG -u /demo/zkdemo.py 2>&1 | sed 's/^/ZKDEMO /'
           cp scripts/issuer.pem vc/certs/test-issuer.pem
           printf '[service]\nexpected_origin = "http://localhost:5000"\n\n[[trust.sources]]\npem = "/config/certs"\n' > vc/config.toml

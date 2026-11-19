@@ -8,7 +8,6 @@ Run it inside the verifier's container, which has the library and the circuit:
         ghcr.io/mirrorisor/zk-age-verifier:fork /demo/measure_mso_limit.py
 """
 
-
 from datetime import datetime, timedelta, timezone
 
 import cbor2

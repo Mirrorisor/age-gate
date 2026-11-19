@@ -8,7 +8,6 @@ from pylongfellow.mdoc import testing
 
 from zk_age_verifier.core.engine.circuits import load_held_circuit
 
-
 now = datetime.now(timezone.utc)
 doctype = "org.iso.18013.5.1.mDL"
 ns = "org.iso.18013.5.1"

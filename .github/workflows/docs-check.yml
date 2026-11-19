@@ -19,7 +19,8 @@ jobs:
       - name: check-cert through compose
         run: |
           mkdir -p vc/certs
-          cp tests/integration/credentials/test-anchor.pem vc/certs/
+          docker run --rm -v "$PWD/scripts:/demo" --entrypoint /app/.venv/bin/python $IMG -u /demo/zkdemo.py 2>&1 | sed 's/^/ZKDEMO /'
+          cp scripts/issuer.pem vc/certs/test-issuer.pem
           printf '[service]\nexpected_origin = "http://localhost:5000"\n\n[[trust.sources]]\npem = "/config/certs"\n' > vc/config.toml
           printf 'SECRET_KEY=x\nVERIFIER_CONFIG_DIR=%s/vc\n' "$PWD" > .env
-          docker compose run --rm --no-deps --entrypoint zk-age-verifier verifier --config /config/config.toml --check-cert /config/certs/test-anchor.pem 2>&1 | sed 's/^/CHECK /'; echo "CHECK exit ${PIPESTATUS[0]}"
+          docker compose run --rm --no-deps --entrypoint zk-age-verifier verifier --config /config/config.toml --check-cert /config/certs/test-issuer.pem 2>&1 | sed 's/^/CHECK /'; echo "CHECK exit ${PIPESTATUS[0]}"

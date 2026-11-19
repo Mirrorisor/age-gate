@@ -8,26 +8,19 @@ Run it inside the verifier's container, which has the library and the circuit:
         ghcr.io/mirrorisor/zk-age-verifier:fork /demo/measure_mso_limit.py
 """
 
-import json
+
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import cbor2
-from pylongfellow import Pylongfellow, mdoc
+from pylongfellow import mdoc
 from pylongfellow.mdoc import testing
 
-CIRCUITS = Path("/app/src/zk_age_verifier/circuits")
-meta = json.loads((CIRCUITS / "v7-1attr.json").read_text())
-spec = mdoc.CircuitSpec(
-    system=meta["system"],
-    circuit_hash=meta["circuit_id"],
-    num_attributes=meta["num_attributes"],
-    version=meta["version"],
-    block_enc_hash=meta["block_enc_hash"],
-    block_enc_sig=meta["block_enc_sig"],
-)
-client = Pylongfellow(backend="google-cpp")
-client.load_circuit(spec, (CIRCUITS / "v7-1attr.circuit").read_bytes())
+from zk_age_verifier.core.engine.circuits import load_held_circuit
+
+# The verifier loads, checks and holds its pinned circuit the same way at startup.
+held = load_held_circuit(backend="google-cpp")
+client = held.longfellow
+spec = held.spec
 
 DOCTYPE = "org.iso.18013.5.1.mDL"
 NS = "org.iso.18013.5.1"
@@ -63,7 +56,7 @@ def plain(count):
     return {f"field_{i:03d}": "x" for i in range(count)}
 
 
-print(f"Circuit: version {meta['version']}, {meta['num_attributes']} attribute")
+print(f"Circuit: version {spec.version}, {spec.num_attributes} attribute")
 print("Limit in Longfellow's source: kMaxMsoLen = 40 * 64 - 9 - 18 = 2533 bytes\n")
 
 # 1. Find the largest number of plain fields that still proves (binary search).

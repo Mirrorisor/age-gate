@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `scripts/update.ps1` updates in one step: git pull, pull and build every image in every
+  profile, and recreate exactly the containers that were running. Plain `docker compose build`
+  skipped the passport service (it is in a profile), so it could stay on an old image. The e2e
+  workflow runs the script and checks the passport container ends up on the freshly built image.
 - Images refreshed after a vulnerability scan: the site on python:3.13-slim 3.13.18 with pip
   removed after install, the passport service on Bun 1.4.5 (was 1.3.8), Caddy 2.11.9 (was
   2.10.2, which had a critical advisory), the current lightwalletd build, the upstream verifier

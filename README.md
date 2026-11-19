@@ -208,6 +208,18 @@ Both are demo roots. They belong in a local test setup only, never on a real sit
 `.env` is ignored by git. Keep it that way. The site runs on Flask's built-in
 server, which is fine for a local demo and not for the public internet.
 
+### Updating
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1
+```
+
+This runs `git pull`, pulls every pinned image, builds every image in every profile, and
+recreates exactly the containers that were running, each on its new image. Plain
+`docker compose build` and `up` skip services in profiles you don't name (such as
+`passport` and `zeccheckout`), which can leave them on an old image. Nothing that was stopped
+is started, and `.env` and your config files are not touched.
+
 ### Trying the payment step with Compose
 
 The Compose file can also start the fake checkout server from the payment section

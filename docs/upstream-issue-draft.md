@@ -7,7 +7,7 @@ Docs: is using `scope` as a per-visit challenge supported? (binding a proof to o
 ## Body
 
 I run a small age gate (https://github.com/Mirrorisor/age-gate) that checks "18 or over" proofs server side
-with `verifierMode: "local"` and the SDK at 0.19.2.
+with `verifierMode: "local"` and the SDK at 0.21.0.
 
 The SDK README describes `scope` as tying the unique identifier to a use case. My gate drops the
 identifier on purpose (an age gate has no use for it, and keeping it would let visits be linked), so I
@@ -43,7 +43,9 @@ into the circuit.
   described only as tying the unique identifier to a use case (default: your domain only); the
   "Verifying the proofs" section says to store the identifier with a uniqueness constraint; the README
   does not mention a length limit for scope, or any proof expiry or freshness. Re-check the README at
-  posting time, and compare with the version you run (0.19.2).
-- Not verified: how the proof's date window works, how long a scope may be, whether the pre-fix replay
+  posting time, and compare with the version you run (0.21.0).
+- Found 19 Nov in the SDK source (0.21.0, `constants.ts`): `verify()` defaults `validity` to 7 days
+  (`DEFAULT_VALIDITY`), which partly answers question 3; trim it before posting.
+- Not verified: how the proof's date window works in detail, how long a scope may be, whether the pre-fix replay
   would really have been accepted (I never ran that case).
 - Posting publicly is your call and happens under your GitHub account.

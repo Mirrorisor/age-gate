@@ -491,11 +491,14 @@ certificate an `untrusted-issuer` refusal was about, loads only a trust list's s
 certificates and can pin the list's hash, explains a refusal with `--check-cert`, and pins the
 clock in a test whose certificate expired. Those fixes were offered upstream (issue #76, pull
 requests #77 and #78). Upstream merged #77 (the refused-certificate log line) into its release
-0.5.0 on 15 November 2026, and #78 is in review. The fork is merged with 0.5.0, so it also has
-pylongfellow 0.8.0, which fixes the prover crash on licence data (pylongfellow #82). It keeps
-its own additions on top: trust-list signature, freshness and EU list-of-lists checks, several
-ID kinds in one service with the holder choosing, and `--check-cert`. The cost: upstream's
-fixes do not arrive by themselves; they have to be merged in by hand.
+0.5.0 on 15 November 2026 and #78 (only active services of a trust list) on 18 November; #88
+(only age-attestation services) is in review, and issue #89 (an expired root still trusted) has
+a fix ready. The fork is merged with both, so it also has pylongfellow 0.8.0, which fixes the
+prover crash on licence data (pylongfellow #82). It keeps its own additions on top: trust-list
+signature, freshness and EU list-of-lists checks, VICAL issuer lists (the format licence
+programmes use to share their issuers), several ID kinds in one service with the holder
+choosing, and `--check-cert`. The cost: upstream's fixes do not arrive by themselves; they have
+to be merged in by hand.
 
 Since 0.5.0 the refused-certificate line (`untrusted_issuer`) is logged at debug level: set
 `log_level = "debug"` under `[service]` in the verifier config to see it.

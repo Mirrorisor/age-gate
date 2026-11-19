@@ -11,6 +11,12 @@
   licence data, pylongfellow#82). The example verifier config logs at debug level, so refused
   certificates are shown.
 - The own-node setup runs Zebra 7.1.0. 7.0.0 is out of support and restarted in a loop.
+- The passport service uses ZKPassport SDK 0.21.0 (was 0.19.2). 0.19.2 could not check proofs from
+  ZKPassport circuits 0.22.0 and later, which current apps make; 0.21.0 also binds a proof set to one
+  passport and refuses camera-read credentials unless a site allows them.
+- The verifier image is the fork with upstream #78 merged and VICAL issuer lists (fork `fa08b9d`).
+- The e2e test phone uses a newer zkpassport-packages, because ZKPassport's test registry now also
+  holds Aadhaar certificates that the old one could not count.
 
 ## 0.2.0 (2026-10-31)
 

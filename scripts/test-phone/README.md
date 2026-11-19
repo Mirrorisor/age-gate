@@ -9,7 +9,7 @@ passport of the fictional "Zero Knowledge Republic".
 
    ```
    $env:REQUEST_URL = "<paste the link>"
-   docker run --rm -e REQUEST_URL -v "${PWD}\scripts\test-phone:/phone:ro" oven/bun:1.3.8 bash /phone/test-phone.sh
+   docker run --rm -e REQUEST_URL -v "${PWD}\scripts\test-phone:/phone:ro" oven/bun:1.4.5@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 bash /phone/test-phone.sh
    ```
 
    Add `-e DATE_OF_BIRTH=2015-01-01` to try a minor: no proof can be made.

@@ -50,7 +50,7 @@ if (-not $ready) { Write-Error "Nothing answered on http://localhost:${port}${pa
 docker run --rm -e SITE_URL=http://host.docker.internal:$port `
     -e PASSPORT_PAGE -e PASSPORT_START -e PASSPORT_FINISH `
     -v "${PWD}\scripts\test-phone:/phone:ro" `
-    oven/bun:1.3.8@sha256:371d30538b69303ced927bb5915697ac7e2fa8cb409ee332c66009de64de5aa3 `
+    oven/bun:1.4.5@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 `
     bash /phone/test-phone.sh e2e.ts
 $result = $LASTEXITCODE
 if ($Example) { docker rm -f age-gate-example | Out-Null }

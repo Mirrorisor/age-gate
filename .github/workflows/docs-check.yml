@@ -25,3 +25,15 @@ jobs:
           printf '[service]\nexpected_origin = "http://localhost:5000"\n\n[[trust.sources]]\npem = "/config/certs"\n' > vc/config.toml
           printf 'SECRET_KEY=x\nVERIFIER_CONFIG_DIR=%s/vc\n' "$PWD" > .env
           docker compose run --rm --no-deps --entrypoint zk-age-verifier verifier --config /config/config.toml --check-cert /config/certs/test-issuer.pem 2>&1 | sed 's/^/CHECK /'; echo "CHECK exit ${PIPESTATUS[0]}"
+      - name: wallet_demo as in the README
+        run: |
+          git clone -q https://github.com/Mirrorisor/zk-age-verifier zkvsrc
+          mkdir -p wd/certs
+          cp zkvsrc/tests/integration/credentials/test-anchor.pem wd/certs/
+          printf '[service]\nexpected_origin = "http://localhost:5000"\n\n[[trust.sources]]\npem = "/config/certs"\n' > wd/config.toml
+          docker run -d --rm --name zkv -p 127.0.0.1:8000:8000 -v "$PWD/wd:/config:ro" -e ZK_AGE_VERIFIER_CONFIG=/config/config.toml $IMG
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 2; done
+          docker exec zkv mkdir -p /tmp/work
+          docker cp zkvsrc/tests zkv:/tmp/work/tests
+          docker cp scripts/wallet_demo.py zkv:/tmp/work/wallet_demo.py
+          docker exec -e PYTHONDONTWRITEBYTECODE=1 zkv /app/.venv/bin/python /tmp/work/wallet_demo.py 2>&1 | sed 's/^/WALLET /'

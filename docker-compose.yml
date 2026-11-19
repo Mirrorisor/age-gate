@@ -20,7 +20,7 @@ services:
     # ghcr.io/mirrorisor/zk-age-verifier:fork, test it, then copy its digest here
     # (docker image inspect --format '{{index .RepoDigests 0}}' ...).
     # To compare with upstream's image, add -f docker-compose.upstream.yml.
-    image: ghcr.io/mirrorisor/zk-age-verifier@sha256:951da885fdb82c9bd2d8762d98ab8feb89846d3f620eeca9fad4e6010ace1601
+    image: ghcr.io/mirrorisor/zk-age-verifier@sha256:3d27f774e007a034511406feac823ad659f7e8063c35e452ad7d7ee3d62f8064
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

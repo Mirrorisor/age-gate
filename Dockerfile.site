@@ -1,5 +1,10 @@
-# Pinned by digest (tested 2026-10-30) so a rebuild cannot change underneath us.
-FROM python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
+# Pinned by digest (Python 3.13.18, tested 2026-11-19) so a rebuild cannot change underneath us.
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
+
+# Debian's security fixes published since the base image was built (Debian stable updates are
+# security and bug fixes only). The images job in tests.yml fails if a fixable one is missing.
+RUN apt-get update && apt-get upgrade --yes --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -8,6 +13,8 @@ RUN pip install --no-cache-dir -r requirements-site.txt
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install --no-cache-dir --no-deps .
+# pip is not needed at run time, and its vendored packages carry known vulnerabilities.
+RUN python -m pip uninstall --yes --quiet pip
 
 COPY app.py ./
 COPY static ./static

@@ -24,7 +24,7 @@ services:
       - zebra-testnet:/home/zebra/.cache/zebra
 
   lightwalletd:
-    image: electriccoinco/lightwalletd:latest@sha256:7be272c4eff6b0a8ac83b61cc98b8ffbf14f3bdad512fa6f17a8ed93d768552f
+    image: electriccoinco/lightwalletd:latest@sha256:75e5742df686094556abef66e69c37bc114de23a0706712aee324f332ca52951
     restart: unless-stopped
     depends_on:
       - zebra

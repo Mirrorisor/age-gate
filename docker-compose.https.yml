@@ -6,8 +6,8 @@
 # pointing at this machine, and ports 80 and 443 open to the internet. See docs/HTTPS.md.
 services:
   caddy:
-    # Pinned by digest (tested 2026-10-31).
-    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    # Pinned by digest (Caddy 2.11.9, 2026-11-19; 2.10.2 had a critical advisory).
+    image: caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     restart: unless-stopped
     depends_on:
       - site

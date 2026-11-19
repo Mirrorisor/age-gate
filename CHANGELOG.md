@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Images refreshed after a vulnerability scan: the site on python:3.13-slim 3.13.18 with pip
+  removed after install, the passport service on Bun 1.4.5 (was 1.3.8), Caddy 2.11.9 (was
+  2.10.2, which had a critical advisory), the current lightwalletd build, the upstream verifier
+  0.5.0 build, and the verifier fork 0739618 (no pip or setuptools in the image). A new `images`
+  job in the tests workflow scans the site and passport images every week and on every push,
+  reports on every pinned third-party image, and checks the Caddyfile with the pinned Caddy.
+  Details in docs/VERIFIER-MAINTENANCE.md (2026-11-19).
 - A standalone verification service (`agecheck.service`, `docs/SERVICE.md`) for sites in any
   language: the site sends the visitor to it with a one-time code and gets back a signed, 120-second
   "over 18" token bound to its origin and that code. `examples/node-site` checks it in Node with no

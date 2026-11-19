@@ -20,7 +20,8 @@ In a checkout of the fork:
    ```
 
    For each finding, `uv lock --upgrade-package <name>`. Also upgrade anything `uv lock`
-   reports as yanked.
+   reports as yanked. Since 2026-11-19 the fork's `Audit` workflow runs this check, and a Trivy
+   scan of the built image, on every push and weekly; look at its latest run first.
 3. **Tests.** `uv sync --frozen` then `uv run --frozen pytest`. All must pass, with the
    required 100% coverage.
 4. **Publish.** Push to the fork's `main`; its "Fork image" workflow publishes
@@ -31,9 +32,29 @@ In a checkout of the fork:
 6. **Log it** below: date, what changed, why.
 
 The site's own packages and the passport service's are audited by CI every week
-(`.github/workflows/tests.yml`, the `audit` job).
+(`.github/workflows/tests.yml`, the `audit` job), and the `images` job there scans the site and
+passport images and reports on every pinned third-party image.
 
 ## Log
+
+### 2026-11-19
+
+- Upstream: nothing new since #78 (merged into the fork on 18 Nov).
+- pip-audit: no known vulnerabilities in the fork's locked runtime dependencies.
+- A first scan of the images (Trivy) found the fork image's only fixable high findings in the
+  base image's setuptools (vendored jaraco.context 5.3.0, CVE-2026-23949; wheel 0.45.1,
+  CVE-2026-24049). The runtime stage is now pinned to python:3.11-slim-bookworm 3.11.18 and
+  removes pip, setuptools and wheel, which the service never uses: 0 findings after.
+- New fork `Audit` workflow (pip-audit and Trivy, weekly and on every push).
+- Published and pinned: fork commit 0739618; CI, Audit and "Fork image" passed;
+  `docker-compose.yml` now pins `sha256:12edd64d...`.
+- Same day in this repository: the site image moved to python:3.13-slim 3.13.18 without pip
+  (its vendored msgpack, urllib3 and setuptools had advisories), the passport image to Bun
+  1.4.5 (the 1.3.8 image's Debian packages had 74 fixable high or critical findings, and the
+  1.3 line has had no image since May), Caddy to 2.11.9 (2.10.2 had a critical advisory),
+  and lightwalletd and the optional upstream verifier to their current builds. Zebra 7.1.0 is
+  the newest release and ZecCheckout has no newer image; their findings are reported weekly by
+  the `images` job.
 
 ### 2026-10-30
 

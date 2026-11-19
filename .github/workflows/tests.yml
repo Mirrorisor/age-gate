@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, refresh-images]
   pull_request:
   # Weekly, so a newly published advisory for a pinned package shows up without a push.
   schedule:
@@ -78,5 +78,47 @@ jobs:
       - name: Audit the passport service's packages
         run: >
           docker run --rm -v "$PWD/passport:/p:ro"
-          oven/bun:1.3.8@sha256:371d30538b69303ced927bb5915697ac7e2fa8cb409ee332c66009de64de5aa3
+          oven/bun:1.4.5@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18
           sh -c 'cp -r /p /w && cd /w && bun install --frozen-lockfile && bun audit'
+
+  # Known vulnerabilities in the images themselves (operating-system packages and anything
+  # else installed in them), which the package audits above do not see. Fails on a fixable
+  # high or critical finding in the two images built here; the third-party images we pin
+  # are only reported, since their fixes are their publishers'. The verifier fork scans its
+  # own image (its Audit workflow).
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Pinned by digest (2026-11-19); its vulnerability database is fetched fresh.
+      TRIVY: aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the site and passport images
+        run: |
+          docker build --quiet --tag local/site --file Dockerfile.site .
+          docker build --quiet --tag local/passport passport
+
+      - name: Scan the images built here
+        run: |
+          for image in local/site local/passport; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY" image \
+              --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+              --exit-code 1 "$image"
+          done
+
+      - name: Report on the pinned third-party images
+        run: |
+          for image in $(grep -hoE 'image: [^ ]+' docker-compose*.yml | cut -d' ' -f2 | sort -u); do
+            count=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY" image \
+              --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format json \
+              "$image" | jq '[.Results[]?.Vulnerabilities[]?] | length')
+            echo "$image: $count fixable high or critical" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Check the Caddyfile with the pinned Caddy
+        run: >
+          docker run --rm -e SITE_DOMAIN=age.example.com -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro"
+          "$(grep -oE 'caddy:[^ ]+' docker-compose.https.yml)"
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

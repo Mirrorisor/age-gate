@@ -53,6 +53,23 @@ jobs:
       - name: Start the site and the passport service
         run: docker compose --profile passport up -d --build --no-deps site passport
 
+      # The laptop's update path: scripts/update.ps1 must rebuild the passport image (it is in a
+      # profile, which plain `docker compose build` skips) and recreate what was running.
+      - name: Update with scripts/update.ps1
+        if: matrix.target == 'site'
+        shell: pwsh
+        run: |
+          $before = docker inspect --format '{{.Created}}' age-gate-passport-1
+          ./scripts/update.ps1 -NoGitPull
+          if ($LASTEXITCODE) { exit 1 }
+          $running = @(docker compose --profile passport ps --services --status running | Sort-Object) -join ','
+          if ($running -ne 'passport,site') { throw "running after update: $running" }
+          $after = docker inspect --format '{{.Created}}' age-gate-passport-1
+          Write-Host "passport container created $before, now $after"
+          $image = docker inspect --format '{{.Image}}' age-gate-passport-1
+          $built = docker image inspect --format '{{.Id}}' age-gate-passport
+          if ($image -ne $built) { throw "passport container is not on the freshly built image" }
+
       - name: Start the example site (reusable PassportGate)
         if: matrix.target == 'example'
         run: |

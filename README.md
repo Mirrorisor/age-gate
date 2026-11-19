@@ -36,7 +36,8 @@ Tested on Windows with Docker Desktop and Chrome, October 2026.
 | Site asks the verifier for a session, Chrome shows the wallet QR prompt | Works |
 | Verifier running in Docker, trusting a test issuer | Works |
 | Fake wallet (test script) producing an encrypted ZK proof, verified by the running verifier | Works: returns `verified`, `age_over_18: True` |
-| Real phone wallet producing a ZK proof | **Works** with the Multipaz Test App's **Age Verification** document, once the issuer's root certificate is in the verifier's `certs` folder (see "Using a real phone wallet"). Photo ID and mDL documents do not work (see known problems). |
+| Real phone wallet producing a ZK proof | **Works** with the Multipaz Test App's **Age Verification** document, and with its **ZKP-friendly driving licence** (28 Oct 2026) and **ZKP-friendly Photo ID** (29 Oct), once the issuer's certificate is trusted (see "Using a real phone wallet"). Those two documents were added to the test app for this ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126), [multipaz#2205](https://github.com/openwallet-foundation/multipaz/pull/2205), both merged). The test app's normal licence and Photo ID still fail (see known problems). |
+| Several ID kinds in one check, the holder choosing | **Works** (29 Oct, from a phone over a public test address): the wallet listed the age card, licence and Photo ID, and each passed. Set `credential = ["eu-av", "iso-mdl", "photo-id"]` in the verifier config. |
 | Real government-issued credentials | **Not tested.** Needs a supported wallet and the real issuer's root certificate. Support in Australia was not confirmed. |
 | Flask site accepting a successful check end to end | **Works** with a real phone wallet and in demo mode (`DEMO_FAKE_WALLET=1`). The site opens `/members` only on a `verified` verdict. |
 | A second wallet and issuer | **Works** with the EU Age Verification reference app and the EU demo issuer (see "Two wallets, two issuers (tested)"). |
@@ -161,27 +162,30 @@ This is the path that worked end to end in testing. It uses Multipaz's **demo**
 certificates, so it is for local testing only.
 
 1. Install the Multipaz Test App on an Android phone.
-2. Add an **Age Verification** document (document type `eu.europa.ec.av.1`).
-   The verifier only accepts this type. Photo ID and mDL documents are rejected
-   or fail on the phone.
-3. Put the root certificate that signed your document into
-   `verifier-config\certs\` and restart the verifier. For documents issued by the
-   Test App's online issuer this was a certificate named `Multipaz TEST IACA`.
-   Documents created offline inside the app use a private root that cannot be
-   exported, so they cannot be trusted by this verifier.
+2. Add an **Age Verification** document (document type `eu.europa.ec.av.1`). This is the
+   verifier's default kind. To also accept a licence or a Photo ID, add a line under
+   `[service]` in `verifier-config\config.toml` and restart the verifier:
+
+   ```toml
+   credential = ["eu-av", "iso-mdl", "photo-id"]
+   ```
+
+   and add the test app's **ZKP-friendly** licence or Photo ID (the normal ones are too large
+   for the proof; see known problems).
+3. Trust the certificate that signed your document. For documents from the Test App's
+   online issuer this was a root named `Multipaz TEST IACA`. Documents the app makes
+   itself are signed by certificates it creates when it is installed, so each new install
+   needs its certificate added again: follow "Finding the certificate a wallet needs" below,
+   and accept it only if its issuer is `OWF Multipaz TEST IACA`.
 4. Open <http://localhost:5000/verify> in Chrome, start the check, scan the QR
-   code with the Test App, choose the Age Verification document and approve it.
+   code with the Test App, choose the document and approve it.
 
 ### If you see `untrusted-issuer`
 
 The verifier accepts a document-signer certificate only if it exactly matches a
 trusted certificate, or was signed directly by one that is allowed to sign
-certificates (`keyCertSign`). To see which certificate your wallet presented, copy
-`core/trustlist.py` out of the container, add a few `print` lines to
-`AnchorSet.resolve` that show the presented certificate's issuer and the loaded
-anchors, and run the container with that file mounted over the original. The
-issuer name tells you which root certificate to add. Nothing in this repository
-depends on that change.
+certificates (`keyCertSign`). "Finding the certificate a wallet needs" below shows
+which certificate was refused and why.
 
 ## Two wallets, two issuers (tested)
 
@@ -251,22 +255,34 @@ lists every certificate the verifier will trust, with its name, dates, fingerpri
 and whether it can sign other certificates. It warns about expired, soon-to-expire
 and demo-looking certificates. It only reads files.
 
-## Finding the root certificate a wallet needs
+## Finding the certificate a wallet needs
 
 When a check ends with "This site does not trust the organisation that issued your
-credential" (`untrusted-issuer`), the verifier gives no detail. To see which
-certificate the wallet presented:
+credential" (`untrusted-issuer`):
 
-1. Copy `core/trustlist.py` out of the verifier container.
-2. Add a few `print` lines at the start of `AnchorSet.resolve` that show the
-   presented certificate's subject, issuer and fingerprint.
-3. Start the container with that file mounted over the original, repeat the check,
-   and read the issuer name in the verifier's output.
-4. Find the issuer's published root certificate. Before trusting it, confirm that it
-   really signed the presented certificate (name match and signature check).
-   Then copy it into `certs\` and restart the verifier.
+1. Make sure `verifier-config\config.toml` has `log_level = "debug"` under `[service]`
+   (the example config does), then read the verifier's log:
 
-The presented certificate is public data. Never trust a root you have not checked
+   ```
+   docker compose logs verifier | Select-String untrusted_issuer
+   ```
+
+   The line names the refused certificate (subject, issuer, fingerprint) and carries the
+   whole certificate as `der_base64`.
+2. Paste the `der_base64` value into a file in your verifier config folder, such as
+   `verifier-config\presented.txt`, and ask the verifier why it refused it:
+
+   ```
+   docker compose run --rm --no-deps --entrypoint zk-age-verifier verifier --config /config/config.toml --check-cert /config/presented.txt
+   ```
+
+   It prints each check and ends with `verdict: TRUSTED` or `verdict: NOT TRUSTED`.
+3. Decide whether to trust its issuer. Find the issuer's published root certificate, or,
+   for a test wallet only, the presented certificate itself, and confirm it is the one you
+   mean to trust (name, fingerprint, and `--check-cert` saying which anchor signed it). Then
+   save it as a `.pem` file in `certs\`, delete `presented.txt`, and restart the verifier.
+
+The presented certificate is public data. Never trust a certificate you have not checked
 this way.
 
 ## Try the payment gate with a fake checkout server (no wallet, no coins)
@@ -428,32 +444,31 @@ question to ZKPassport about the per-visit scope:
 
 ## Known problems and open questions
 
-- **Photo ID and mDL documents fail on the phone.** The verifier's proof circuit only
-  fits an issuer-signed MSO of up to 2,533 bytes, which is about 62 fields: the MSO holds
-  one digest per field, so the number of fields decides it, not their size (a 60 KB
-  portrait costs the same as a one-letter field). Many mDLs have more fields than that;
-  the Age Verification document has few. Separately, Longfellow's C++ prover crashes on
-  credentials with nested fields such as `driving_privileges`. Measurements and options:
-  [docs/CREDENTIAL-SIZE.md](docs/CREDENTIAL-SIZE.md). The Multipaz test app's ZK-friendly mDL also failed for a separate
-  reason (it carried key authorizations the circuit does not accept); that was fixed in
-  the test app ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126))
-  as a workaround until [longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220).
-  Not retested here since.
-- **Wrong document type:** the verifier asks for `eu.europa.ec.av.1`. Other types
-  give `claim-mismatch`.
+- **Full-size licences and Photo IDs fail on the phone.** The proof circuit only fits an
+  issuer-signed MSO of up to 2,533 bytes, which is 62 fields: the MSO holds one digest per
+  field, so the number of fields decides it, not their size (a 60 KB portrait costs the same
+  as a one-letter field). The Multipaz test app's normal licence has 63. Remeasured on
+  19 Nov 2026 with the current verifier: 62 fields prove, 63 fail. A larger limit needs a new
+  circuit version, asked for in
+  [longfellow-zk#228](https://github.com/longfellow-zk/longfellow-zk/issues/228). Separately,
+  the circuit refuses documents whose device key carries key authorizations
+  ([longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220)), which the
+  test app's normal documents do. The ZKP-friendly test documents avoid both. Measurements:
+  [docs/CREDENTIAL-SIZE.md](docs/CREDENTIAL-SIZE.md).
+- **Kinds not listed are refused:** the verifier asks only for the kinds in its
+  `credential` setting (the Age Verification document by default). Other documents give
+  `claim-mismatch`.
 - **Issuer trust is manual.** You must supply the right root certificate yourself.
   Only trust issuers you intend to trust, and never reuse the demo certificates on a
   real site.
-- **Trust lists are not a safe shortcut.** The verifier's ETSI trust-list loader (as
-  of version 0.4.0) takes every certificate it finds in the file, including the
-  list's own signing certificates, and does not check the list's signature. The EU's
-  example list inspected during testing contained only signing certificates, so by the
-  loader's code, adding it would make those signers trust anchors (not tested
-  that way). Prefer individual root certificates that you checked by hand.
-- **`untrusted-issuer` carries no detail,** so finding the right root takes the
-  debugging steps above.
-  I reported this and the trust-list point to the verifier's maintainers:
-  <https://github.com/pipe23-org/zk-age-verifier/issues/76>.
+- **Trust lists need care.** Older verifier versions took every certificate in an ETSI trust
+  list, including the list's own signers, and did not check its signature (reported as
+  [zk-age-verifier#76](https://github.com/pipe23-org/zk-age-verifier/issues/76)). The fork
+  this stack runs loads only active services' certificates (upstream since #78), can require
+  the list's signature (`etsi_xml_signer`) or pin its hash, and refuses a list past its
+  `NextUpdate`; see the fork's configuration docs. Even so, start with individual
+  certificates you checked by hand, and read a list (`--check-vical` for a VICAL) before
+  trusting it.
 - **Windows:** the verifier's compiled dependency has no Windows build, which is
   why it runs in Docker instead of `pip install`.
 - The Flask `secret_key` falls back to a placeholder unless `SECRET_KEY` is set.

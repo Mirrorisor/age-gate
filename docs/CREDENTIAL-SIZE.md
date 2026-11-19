@@ -1,9 +1,12 @@
 # Why larger credentials fail (roadmap M4)
 
-Only the small EU Age Verification document works from a real wallet; driving licences (mDL)
-and photo IDs fail. This is the measured account of why. Measured 2026-10-30 with
-`scripts/measure_mso_limit.py`, inside the verifier fork's image (pylongfellow 0.5.2, the
-version 7 one-attribute Longfellow circuit the verifier pins).
+Full-size driving licences (mDL) and photo IDs fail from a real wallet, while the EU Age
+Verification document and the Multipaz test app's reduced "ZKP-friendly" licence and Photo ID
+work. This is the measured account of why. First measured 2026-10-30 with
+`scripts/measure_mso_limit.py` inside the verifier fork's image (pylongfellow 0.5.2), and
+measured again on 2026-11-19 with the fork build the stack now pins (pylongfellow 0.8.0): the
+same version 7 one-attribute circuit, the same limit, and the same results, except the nested
+field below.
 
 ## The limit
 
@@ -33,18 +36,24 @@ A credential whose tagged MSO is longer than 2,533 bytes cannot be proved with t
 - The request cannot work around it: the issuer signs digests for every field in the credential,
   and the circuit must hash the whole MSO even to reveal one field.
 
-## A second, separate problem: nested fields crash the C++ prover
+## Fixed since: nested fields crashed the C++ prover
 
-| Credential | Prover backend | Result |
-|---|---|---|
-| `age_over_18` plus a nested `driving_privileges` (a list of maps, as in a real mDL) | `google-cpp` | **the process crashes** (segmentation fault, after "valueLength called on non-value type") |
-| the same credential | `isrg-rust` | proves |
+| Credential | Prover backend | 2026-10-30 (pylongfellow 0.5.2) | 2026-11-19 (pylongfellow 0.8.0) |
+|---|---|---|---|
+| `age_over_18` plus a nested `driving_privileges` (a list of maps, as in a real mDL) | `google-cpp` | **the process crashed** (segmentation fault, after "valueLength called on non-value type") | proves (MSO 383 bytes) |
 
-- The crash is in proving, which runs in the wallet, not in the verifier. Handed a garbage proof,
-  the verifier's side raised a clean `VerifierError` (one input, not an exhaustive test).
-- It is a bug in Longfellow's C++ prover, not a size limit: the Rust backend handles the same
-  credential. Reported upstream as
-  [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
+- The crash was in proving, which runs in the wallet, not in the verifier. Reported as
+  [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221) and
+  [pylongfellow#82](https://github.com/pipe23-org/pylongfellow/issues/82); pylongfellow 0.8.0
+  fixed it. A wallet still needs a prover with the fix.
+
+## Also refused: key authorizations
+
+The circuit requires the MSO's `deviceKeyInfo` to hold only the device key. The Multipaz test
+app's normal documents also sign `keyAuthorizations` into it, and the phone's prover then fails
+whatever the size. The ZKP-friendly test documents are issued without them
+([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126)), as a workaround
+until [longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220).
 
 ## What would make larger credentials work
 
@@ -53,14 +62,16 @@ A credential whose tagged MSO is longer than 2,533 bytes cannot be proved with t
 2. **A circuit compiled for more SHA blocks.** Longfellow already raised the limit once (35 to 40
    blocks for v7). A larger circuit means bigger proofs and slower proving, and the wallet and the
    verifier must both use the same circuit, so it needs Longfellow, wallet makers and verifier
-   maintainers to agree. This project can ask, not decide.
-3. **Fix the C++ prover crash** upstream, so mDLs with nested fields at least fail cleanly, or
-   prove when they fit. Reported as [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
+   maintainers to agree. This project can ask, not decide: asked in
+   [longfellow-zk#228](https://github.com/longfellow-zk/longfellow-zk/issues/228) (44 blocks would
+   fit 69 fields, 48 would fit 76).
+3. **Issuers leave out key authorizations** for credentials meant for zero-knowledge proofs, or
+   Longfellow accepts them ([longfellow-zk#220](https://github.com/longfellow-zk/longfellow-zk/issues/220)).
 
 ## Reproduce
 
     docker run --rm -v "%CD%\scripts:/demo" --entrypoint /app/.venv/bin/python ^
         ghcr.io/mirrorisor/zk-age-verifier:fork -u /demo/measure_mso_limit.py
 
-The script stops when it reaches the nested-field case, because the C++ prover crashes the
-process; the size results print before that.
+It loads the circuit the same way the verifier does at startup. With pylongfellow 0.8.0 it runs
+to the end (before 0.8.0 it stopped at the nested-field case, where the prover crashed).

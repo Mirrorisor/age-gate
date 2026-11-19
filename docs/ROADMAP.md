@@ -68,10 +68,17 @@ works from a real wallet.
   Longfellow maintainers, either support for larger documents or a request shape that fits.
 - **Done when:** an mDL from the Multipaz test app proves `age_over_18` through the site, or the
   limit and its cause are documented upstream.
-- **Started:** the limit is measured and explained in [CREDENTIAL-SIZE.md](CREDENTIAL-SIZE.md):
-  a 2,533-byte MSO, about 62 fields, decided by the number of fields and not their size. It also
-  found a crash in Longfellow's C++ prover on nested fields, reported as
-  [longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221).
+- **Done (both conditions), 19 Nov 2026:** the Multipaz test app's ZKP-friendly mDL proved
+  `age_over_18` through the site on 28 Oct, and its ZKP-friendly Photo ID on 29 Oct
+  ([multipaz#2126](https://github.com/openwallet-foundation/multipaz/pull/2126) and
+  [#2205](https://github.com/openwallet-foundation/multipaz/pull/2205), merged). The limit is
+  measured and explained in [CREDENTIAL-SIZE.md](CREDENTIAL-SIZE.md) (a 2,533-byte MSO, 62
+  fields, decided by the number of fields and not their size; remeasured 19 Nov) and raised
+  upstream as [longfellow-zk#228](https://github.com/longfellow-zk/longfellow-zk/issues/228). The
+  nested-field prover crash it also found
+  ([longfellow-zk#221](https://github.com/longfellow-zk/longfellow-zk/issues/221)) is fixed in
+  pylongfellow 0.8.0. Still open: full-size licences, which need #228 or smaller issuer
+  credentials.
 
 ### M5. A careful real-credential pilot
 

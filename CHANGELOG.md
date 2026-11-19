@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Docs brought up to date: the README now says the ZKP-friendly licence and Photo ID work and how
+  to accept several kinds; finding a refused certificate uses the verifier's `untrusted_issuer`
+  log line and `--check-cert` instead of patching the container; the trust-list and
+  "no detail" known problems reflect the fork. `docs/CREDENTIAL-SIZE.md` was remeasured
+  (62-field limit unchanged; the nested-field crash is fixed in pylongfellow 0.8.0) and
+  roadmap M4 is marked done. `scripts/zkdemo.py` and `scripts/measure_mso_limit.py` load the
+  circuit through the verifier's own loader, since pylongfellow 0.8.0 removed
+  `mdoc.CircuitSpec` and both scripts had stopped working.
 - `scripts/update.ps1` updates in one step: git pull, pull and build every image in every
   profile, and recreate exactly the containers that were running. Plain `docker compose build`
   skipped the passport service (it is in a profile), so it could stay on an old image. The e2e

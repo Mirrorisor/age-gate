@@ -1,0 +1,70 @@
+name: eu-test-issuers
+
+# scripts/eu_test_issuers.py against the EU's live lists (weekly, so a changed signer or a
+# real issuer appearing on the test list shows up) and against the lists captured on
+# 2026-11-15 in the verifier fork's test data (a fixed expected result).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/eu_test_issuers.py
+      - .github/workflows/eu-test-issuers.yml
+      - docker-compose.yml
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifier image (as pinned in docker-compose.yml)
+        run: |
+          image=$(grep -oE 'ghcr.io/mirrorisor/zk-age-verifier@sha256:[0-9a-f]+' docker-compose.yml)
+          echo "IMG=$image" >> "$GITHUB_ENV"
+          docker pull -q "$image"
+
+      - name: Captured lists (2026-11-15) give the expected issuers
+        run: |
+          git clone -q https://github.com/Mirrorisor/zk-age-verifier zkv
+          mkdir -m 777 out
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/zkv/tests/data:/lists:ro" \
+            -v "$PWD/out:/out" --entrypoint /app/.venv/bin/python "$IMG" \
+            /scripts/eu_test_issuers.py /out \
+            --acceptance /lists/av-tl-acceptance-2026-11-15.xml \
+            --production /lists/av-tl-production-2026-11-15.xml
+          ls out
+          # The EU reference test CA ("Age Verification Issuer CA 01") is kept.
+          ls out | grep -q 'edacf968'
+          # The Danish issuer that is also on the production list is left out.
+          ! ls out | grep -q '1dc89e87'
+          test "$(ls out | wc -l)" -ge 5
+
+      - name: A list signed by someone else is refused, and nothing is written
+        run: |
+          mkdir -m 777 out2
+          set +e
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/zkv/tests/data:/lists:ro" \
+            -v "$PWD/out2:/out" --entrypoint /app/.venv/bin/python "$IMG" \
+            /scripts/eu_test_issuers.py /out \
+            --acceptance /lists/av-tl-production-2026-11-15.xml \
+            --production /lists/av-tl-production-2026-11-15.xml
+          code=$?
+          set -e
+          test "$code" = 1
+          test -z "$(ls out2)"
+
+      - name: Live lists
+        run: |
+          mkdir -m 777 live
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/live:/out" \
+            --entrypoint /app/.venv/bin/python "$IMG" /scripts/eu_test_issuers.py /out \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          ls live | grep -q 'edacf968'

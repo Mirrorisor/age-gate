@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: [main, refresh-images]
+    branches: [main, go-public-guard]
   pull_request:
   # Weekly, so a newly published advisory for a pinned package shows up without a push.
   schedule:

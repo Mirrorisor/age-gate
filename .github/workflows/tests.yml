@@ -151,4 +151,7 @@ jobs:
           Copy-Item zkv/tests/data/av-issuer-ca-01.pem vc/certs/eu.pem
           $out = Run-GoPublic
           if ($out -match "public test CA|Demo mode") { throw "guard refused a clean setup" }
+          # Past the guard it looks for cloudflared, which this Linux runner does not have.
+          if ($out -notmatch "cloudflared") { throw "did not get past the guard" }
+          exit 0
 

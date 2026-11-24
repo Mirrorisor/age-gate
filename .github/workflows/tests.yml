@@ -122,3 +122,32 @@ jobs:
           docker run --rm -e SITE_DOMAIN=age.example.com -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro"
           "$(grep -oE 'caddy:[^ ]+' docker-compose.https.yml)"
           caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  # scripts/go-public.ps1 must refuse to put the site online while the verifier trusts its
+  # own public test CA or demo mode is on.
+  go-public-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: The guard refuses the public test CA and demo mode, and passes otherwise
+        shell: pwsh
+        run: |
+          git clone -q --depth 1 https://github.com/Mirrorisor/zk-age-verifier zkv
+          New-Item -ItemType Directory -Path vc/certs -Force | Out-Null
+          "SECRET_KEY=x`nVERIFIER_CONFIG_DIR=$PWD/vc" | Set-Content .env
+          function Run-GoPublic {
+            $out = & pwsh -NoProfile -File ./scripts/go-public.ps1 2>&1 | Out-String
+            Write-Host $out
+            return $out
+          }
+          Copy-Item zkv/tests/integration/credentials/test-anchor.pem vc/certs/anchor.pem
+          if ((Run-GoPublic) -notmatch "public test CA") { throw "test CA not refused" }
+          Remove-Item vc/certs/anchor.pem
+          Add-Content .env "DEMO_FAKE_WALLET=1"
+          if ((Run-GoPublic) -notmatch "Demo mode") { throw "demo mode not refused" }
+          "SECRET_KEY=x`nVERIFIER_CONFIG_DIR=$PWD/vc" | Set-Content .env
+          Copy-Item zkv/tests/data/av-issuer-ca-01.pem vc/certs/eu.pem
+          $out = Run-GoPublic
+          if ($out -match "public test CA|Demo mode") { throw "guard refused a clean setup" }
+

@@ -6,7 +6,7 @@ name: eu-test-issuers
 
 on:
   push:
-    branches: [main]
+    branches: [main, eu-test-issuers]
     paths:
       - scripts/eu_test_issuers.py
       - .github/workflows/eu-test-issuers.yml

@@ -17,7 +17,8 @@ Usage::
 
 A visitor who has not passed is sent to ``/age/verify``, whose button asks their
 wallet for a zero-knowledge proof. The site learns only "over 18: yes" and keeps a
-flag in the signed session cookie. The page has no inline script, so it works under
+flag, with the time the pass ends (``pass_hours``, 12 by default), in the signed session
+cookie. The page has no inline script, so it works under
 a strict Content-Security-Policy (``script-src 'self'``).
 
 This module needs Flask (``pip install flask``); the rest of ``agecheck`` does not.
@@ -25,6 +26,7 @@ Rate limiting, https and a real ``SECRET_KEY`` are the host site's job.
 """
 
 import html
+import time
 from functools import wraps
 
 from flask import Blueprint, Response, jsonify, redirect, request, session, url_for
@@ -63,6 +65,17 @@ document.getElementById('agecheck-go').addEventListener('click', go);
 """
 
 
+def has_pass(session_key="is_adult"):
+    """True if the session holds a pass under ``session_key`` that has not ended yet."""
+    until = session.get(session_key + "_until")
+    return (
+        session.get(session_key) is True
+        and isinstance(until, int)
+        and not isinstance(until, bool)
+        and time.time() < until
+    )
+
+
 class Gate:
     """What every gate shares: the pass flag, ``age_required``, and safe returns.
 
@@ -73,18 +86,27 @@ class Gate:
 
     verify_endpoint = None
 
-    def __init__(self, *, default_next="/", session_key="is_adult"):
+    def __init__(self, *, default_next="/", session_key="is_adult", pass_hours=12):
+        if not pass_hours > 0:
+            raise ValueError("pass_hours must be more than 0")
         self.default_next = default_next
         self.session_key = session_key
+        self.pass_seconds = pass_hours * 3600
+        self._until_key = session_key + "_until"
         self._pending_key = session_key + "_next"
 
     def is_adult(self):
-        """True if this visitor has passed the check."""
-        return bool(session.get(self.session_key))
+        """True if this visitor has passed the check and the pass has not ended.
+
+        The pass lives in the signed session cookie, so it ends after ``pass_hours``: a
+        copied cookie does not let anyone in for ever. A pass with no end counts as none.
+        """
+        return has_pass(self.session_key)
 
     def revoke(self):
         """Forget that this visitor passed (log them out of the gate)."""
         session.pop(self.session_key, None)
+        session.pop(self._until_key, None)
 
     def age_required(self, view):
         """Protect a view: visitors who have not passed are sent to the gate."""
@@ -119,8 +141,9 @@ class Gate:
         return self.default_next
 
     def _passed(self):
-        """Record the pass and say where to go next."""
+        """Record the pass, until ``pass_hours`` from now, and say where to go next."""
         session[self.session_key] = True
+        session[self._until_key] = int(time.time() + self.pass_seconds)
         return self._safe_next(session.pop(self._pending_key, None))
 
 
@@ -135,15 +158,17 @@ class AgeGate(Gate):
         default_next: Where to send a visitor after passing, when they came straight
             to the gate rather than from a protected page. Must be a path on this site.
         session_key: The session key that records a pass.
+        pass_hours: How long a pass lets the visitor in (default 12).
     """
 
     verify_endpoint = "agecheck_gate.verify_page"
 
     def __init__(self, verifier_url=None, *, verifier=None, url_prefix="/age",
-                 default_next="/", session_key="is_adult"):
+                 default_next="/", session_key="is_adult", pass_hours=12):
         if (verifier_url is None) == (verifier is None):
             raise ValueError("give exactly one of verifier_url or verifier")
-        super().__init__(default_next=default_next, session_key=session_key)
+        super().__init__(default_next=default_next, session_key=session_key,
+                         pass_hours=pass_hours)
         self.verifier = verifier if verifier is not None else AgeVerifier(verifier_url)
         self._session_id_key = session_key + "_session"
         self.blueprint = Blueprint("agecheck_gate", __name__, url_prefix=url_prefix)

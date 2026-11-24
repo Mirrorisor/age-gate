@@ -64,6 +64,28 @@ PASSPORT_URL = os.environ.get("PASSPORT_URL", "").rstrip("/")
 PASSPORT_UPLOAD_LIMIT = 8 * 1024 * 1024
 
 
+# How long a passed check lets a visitor in. The pass lives in the signed session cookie, so
+# without an end a copied cookie would let anyone in for ever; after this they check again.
+PASS_SECONDS = float(os.environ.get("PASS_HOURS", "12")) * 3600
+
+
+def grant_pass():
+    """Record that this visitor passed, until PASS_SECONDS from now."""
+    session["is_adult"] = True
+    session["adult_until"] = int(time.time() + PASS_SECONDS)
+
+
+def has_pass():
+    """True while this visitor's pass is current. A pass with no end date counts as none."""
+    until = session.get("adult_until")
+    return (
+        session.get("is_adult") is True
+        and isinstance(until, int)
+        and not isinstance(until, bool)
+        and time.time() < until
+    )
+
+
 # Requests per minute per address for the age-check and payment routes. 0 turns it off.
 limiter = RateLimiter(
     int(os.environ.get("RATE_LIMIT_PER_MIN", "30")),
@@ -241,7 +263,7 @@ def api_finish():
         }), 502
     session.pop("av_session", None)
     if ok:
-        session["is_adult"] = True
+        grant_pass()
     payload = {"ok": ok, "detail": detail}
     if not ok:
         payload["message"] = explain(detail)
@@ -340,7 +362,7 @@ def passport_finish():
     session.pop("passport_scope_at", None)
     if not ok:
         return jsonify({"ok": False, "message": "The passport proof did not show you are 18 or over."})
-    session["is_adult"] = True
+    grant_pass()
     return jsonify({"ok": True, "next": url_for("members")})
 
 
@@ -368,7 +390,7 @@ def demo_verify():
     except VerifierError:
         return "<h1>Verifier unavailable</h1>", 502
     if ok:
-        session["is_adult"] = True
+        grant_pass()
         return redirect(url_for("members"))
     return (
         "<h1>Not verified</h1><p>" + html.escape(explain(detail)) + "</p><pre>"
@@ -395,7 +417,7 @@ poll();
 
 @app.route("/pay")
 def pay():
-    if not session.get("is_adult"):
+    if not has_pass():
         return redirect(url_for("verify"))
     if not PAYMENT_GATE:
         return redirect(url_for("members"))
@@ -406,6 +428,10 @@ def pay():
         try:
             created = zec.create_invoice(PRICE_ZEC, secrets.token_hex(8))
         except PaymentError:
+            return "<h1>Payment service unavailable</h1>", 502
+        amount = created.get("amount_zat")
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+            # Without the amount the invoice asks for, a payment could never be checked.
             return "<h1>Payment service unavailable</h1>", 502
         invoices.add(
             created["id"],
@@ -461,14 +487,15 @@ def zeccheckout_webhook():
         except PaymentError:
             return jsonify({"error": "could not confirm"}), 503  # the sender will retry
         expected = record["amount_zat"]
-        amount_ok = True
-        if isinstance(expected, int):
-            confirmed = invoice.get("confirmed_zat")
-            amount_ok = (
-                invoice.get("amount_zat") == expected
-                and isinstance(confirmed, int)
-                and confirmed >= expected
-            )
+        confirmed = invoice.get("confirmed_zat")
+        # Fail closed: an invoice whose amount was never recorded unlocks nothing.
+        amount_ok = (
+            isinstance(expected, int)
+            and invoice.get("amount_zat") == expected
+            and isinstance(confirmed, int)
+            and confirmed >= expected
+            and confirmed_by_server.get("amount_zat", expected) == expected
+        )
         if confirmed_by_server.get("status") != "paid" or not amount_ok:
             return jsonify({"ignored": True})
         invoices.record(invoice_id, event_id, seq, "paid")
@@ -481,7 +508,7 @@ def zeccheckout_webhook():
 
 @app.route("/members")
 def members():
-    if not session.get("is_adult"):
+    if not has_pass():
         return redirect(url_for("home"))
     if PAYMENT_GATE and not invoices.is_paid(session.get("invoice_id")):
         return redirect(url_for("pay"))
@@ -517,9 +544,11 @@ def privacy():
         "<li>To check the proof, the verifier sees which organisation issued your "
         "credential (its signing certificate), so it learns, for example, the country "
         "or state. It does not keep this when the check passes.</li>"
-        "<li>A browser cookie records that you passed (and, if payments are on, which "
-        "random invoice number is yours). It holds no personal details. Logging out "
-        "clears it completely.</li>"
+        "<li>A browser cookie records that you passed and until when (the pass lasts "
+        + html.escape(f"{PASS_SECONDS / 3600:g}")
+        + " hours; then you check again), and, if payments are on, which random invoice "
+        "number is yours. It holds no personal details. Logging out clears it "
+        "completely.</li>"
         + payment
         + passport
         + "<li>This demo keeps no accounts and no record of who you are.</li>"

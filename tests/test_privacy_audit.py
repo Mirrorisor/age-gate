@@ -10,9 +10,11 @@ import app as site
 from agecheck.zecpay import InvoiceStore
 
 # The only things the session cookie may ever hold. None of them is personal data.
-# passport_scope is a random code for one passport check, passport_scope_at when it began.
+# passport_scope is a random code for one passport check, passport_scope_at when it began;
+# adult_until is when the pass ends.
 ALLOWED_SESSION_KEYS = {
-    "av_session", "is_adult", "invoice_id", "passport_scope", "passport_scope_at",
+    "av_session", "is_adult", "adult_until", "invoice_id", "passport_scope",
+    "passport_scope_at",
 }
 
 PROOF = "wallet-proof-" + "p" * 200  # stands in for the wallet's zero-knowledge proof

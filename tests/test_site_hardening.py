@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import app as site
@@ -54,6 +55,7 @@ def test_private_pages_are_not_cached():
     client = site.app.test_client()
     with client.session_transaction() as s:
         s["is_adult"] = True
+        s["adult_until"] = int(time.time()) + 3600
     assert client.get("/members").headers["Cache-Control"] == "no-store"
     assert client.get("/pay/status").headers["Cache-Control"] == "no-store"
     assert "Cache-Control" not in client.get("/").headers

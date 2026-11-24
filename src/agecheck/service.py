@@ -36,7 +36,7 @@ from urllib.parse import urlencode, urlsplit
 
 from flask import Flask, redirect, request, session
 
-from agecheck.flask_gate import AgeGate
+from agecheck.flask_gate import AgeGate, has_pass
 from agecheck.flask_passport import PassportGate
 from agecheck.handoff import issue
 from agecheck.ratelimit import RateLimiter
@@ -126,7 +126,7 @@ def create_app(config=None):
     @app.route("/handoff")
     def handoff():
         nonce = session.get(_NONCE_KEY)
-        passed = session.get(_PASS_KEY) is True
+        passed = has_pass(_PASS_KEY)
         session.clear()  # one token per check; nothing kept afterwards
         if not nonce or not passed:
             return "<h1>Not verified</h1><p>Start again from the site.</p>", 400

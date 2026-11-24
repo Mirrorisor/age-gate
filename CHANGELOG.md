@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- A pass now ends: it lasts `PASS_HOURS` (default 12; `pass_hours` on `AgeGate` and
+  `PassportGate`), and the cookie records when (`adult_until`, or `<session_key>_until` in the
+  package). Before, a copied "passed" cookie let anyone in for ever. Cookies from before this
+  change count as no pass, so visitors check once more.
+- Payments fail closed: an invoice without an amount from the checkout server is never
+  offered, and a paid webhook unlocks nothing unless the recorded amount, the webhook's
+  amounts and the checkout server's own amount all agree. Before, an invoice recorded without
+  an amount skipped the amount check.
 - `scripts/eu-test-issuers.ps1` (with `scripts/eu_test_issuers.py`, run in the verifier's image) takes approved test issuers from the EU's signed Age Verification acceptance list: both EU lists' signatures are checked against pinned signers, a list past its `NextUpdate` is refused, issuers on the production list are never written, and only the EU reference test CA is approved unless `-Also` names another. A weekly `eu-test-issuers` workflow runs it against the live lists and the captured ones.
 - Verifier fork 4563c7e (upstream #88 merged in: an `etsi_xml` trust source now loads only age-attestation services). The example config uses PEM certificates, so nothing changes for it.
 - Docs brought up to date: the README now says the ZKP-friendly licence and Photo ID work and how

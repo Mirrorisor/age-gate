@@ -58,18 +58,20 @@ class PassportGate(Gate):
         scopes_db: A SQLite file for the record of scopes already tried, so a restart
             cannot give a used check a second try. ``None`` keeps it in memory.
         visit_seconds: How long a started check stays usable.
+        pass_hours: How long a pass lets the visitor in (default 12).
     """
 
     verify_endpoint = "agecheck_passport.verify_page"
 
     def __init__(self, passport_url=None, *, checker=None, domain, url_prefix="/passport-check",
                  default_next="/", session_key="is_adult", dev_mode=True, scopes_db=None,
-                 visit_seconds=15 * 60):
+                 visit_seconds=15 * 60, pass_hours=12):
         if (passport_url is None) == (checker is None):
             raise ValueError("give exactly one of passport_url or checker")
         if not domain or "/" in domain or ":" in domain:
             raise ValueError("domain is a bare host name, such as example.com")
-        super().__init__(default_next=default_next, session_key=session_key)
+        super().__init__(default_next=default_next, session_key=session_key,
+                         pass_hours=pass_hours)
         self.checker = checker if checker is not None else PassportChecker(passport_url)
         self.domain = domain
         self.dev_mode = dev_mode

@@ -176,6 +176,7 @@ def adult_client():
     client = site.app.test_client()
     with client.session_transaction() as s:
         s["is_adult"] = True
+        s["adult_until"] = int(time.time()) + 3600
     return client
 
 

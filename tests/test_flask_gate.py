@@ -156,7 +156,7 @@ def test_the_session_holds_only_flags():
     client = make_site()[0].test_client()
     pass_the_check(client)
     with client.session_transaction() as s:
-        assert set(s) == {"is_adult"}
+        assert set(s) == {"is_adult", "is_adult_until"}
 
 
 def test_a_custom_url_prefix_and_session_key():
@@ -175,3 +175,39 @@ def test_exactly_one_of_url_or_verifier_is_required():
     with pytest.raises(ValueError):
         AgeGate("http://x", verifier=FakeVerifier())
     assert AgeGate("http://127.0.0.1:8000").verifier.base_url == "http://127.0.0.1:8000"
+
+
+def test_a_pass_ends_after_pass_hours(monkeypatch):
+    import time
+
+    from agecheck import flask_gate
+
+    client = make_site(pass_hours=2)[0].test_client()
+    pass_the_check(client)
+    assert client.get("/members").status_code == 200
+    with client.session_transaction() as s:
+        until = s["is_adult_until"]
+    assert abs(until - (time.time() + 2 * 3600)) < 5
+    monkeypatch.setattr(flask_gate.time, "time", lambda: until + 1)
+    assert client.get("/members").status_code == 302
+
+
+def test_a_pass_without_an_end_is_no_pass():
+    client = make_site()[0].test_client()
+    with client.session_transaction() as s:
+        s["is_adult"] = True  # as a cookie made before passes had an end
+    assert client.get("/members").status_code == 302
+
+
+def test_logout_removes_the_end_too():
+    client = make_site()[0].test_client()
+    pass_the_check(client)
+    client.get("/logout")
+    with client.session_transaction() as s:
+        assert "is_adult_until" not in s
+
+
+def test_pass_hours_must_be_positive():
+    with pytest.raises(ValueError):
+        make_site(pass_hours=0)
+

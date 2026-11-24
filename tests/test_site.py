@@ -3,6 +3,7 @@
 # Make sure demo mode is off for the tests, whatever your shell has set.
 os.environ.pop("DEMO_FAKE_WALLET", None)
 
+import time
 import pytest
 import requests
 
@@ -32,6 +33,7 @@ def client():
 def give_pass(client):
     with client.session_transaction() as s:
         s["is_adult"] = True
+        s["adult_until"] = int(time.time()) + 3600
 
 
 def test_home_page_loads(client):

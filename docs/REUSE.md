@@ -25,9 +25,10 @@ def members():
 - A visitor who has not passed is sent to `/age/verify`, then back to the page they wanted.
 - The page and its script have no inline code, so they work under a strict
   Content-Security-Policy such as `script-src 'self'`.
-- The site learns "over 18: yes" and keeps one flag in the signed session cookie.
+- The site learns "over 18: yes" and keeps a flag, and when the pass ends, in the signed
+  session cookie. A pass lasts `pass_hours` (default 12), so a copied cookie stops working.
 - `gate.is_adult()` and `gate.revoke()` are there for your own pages and logout route.
-- Options: `url_prefix` (default `/age`), `default_next`, `session_key`.
+- Options: `url_prefix` (default `/age`), `default_next`, `session_key`, `pass_hours`.
 - Not included, on purpose: rate limiting, https, security headers. Add those on your site
   (the age-gate site's `app.py` shows one way).
 - Needs Flask (`pip install flask`). The rest of the `agecheck` package does not.

@@ -1,3 +1,5 @@
+import time
+
 import app as site
 
 
@@ -19,4 +21,5 @@ def test_members_page_links_to_it():
     client = site.app.test_client()
     with client.session_transaction() as s:
         s["is_adult"] = True
+        s["adult_until"] = int(time.time()) + 3600
     assert 'href="/privacy"' in client.get("/members").get_data(as_text=True)

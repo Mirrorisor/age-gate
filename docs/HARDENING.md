@@ -10,6 +10,12 @@ on test certificates; none of this makes it fit for real users.
 - **Secret key.** The cookie is signed with `SECRET_KEY`; anyone who knows the key can forge
   a "passed the age check" cookie. With no key set, the site makes a random one for each run
   (everyone is logged out on restart). The payment step still insists on a real key.
+- **Passes end.** A pass lasts `PASS_HOURS` (default 12): the cookie records when it ends
+  (`adult_until`), and after that the visitor checks again. Without an end, a copied cookie
+  would let anyone in for ever. A cookie with no end date counts as no pass.
+- **Payments fail closed.** An invoice whose amount the checkout server did not state is
+  never offered, and a paid webhook unlocks nothing unless the amount recorded for the
+  invoice, the webhook's amounts and the checkout server's own record all agree.
 - **Rate limits.** `/api/start`, `/api/finish`, `/api/passport/start`, `/api/passport/finish`, `/pay` and `/demo-verify` allow
   `RATE_LIMIT_PER_MIN` requests per minute per address (default 30, `0` turns it off).
   Under Compose the counts live in a SQLite file (`RATE_LIMIT_DB`), so they survive a restart
@@ -39,7 +45,7 @@ on test certificates; none of this makes it fit for real users.
 
 `tests/test_privacy_audit.py` runs with the other tests and fails if the site starts storing
 or showing more than `/privacy` says: the session cookie may only hold `av_session`,
-`is_adult`, `invoice_id` and, during a passport check, `passport_scope` and `passport_scope_at`
+`is_adult`, `adult_until`, `invoice_id` and, during a passport check, `passport_scope` and `passport_scope_at`
 (a random code and when it was made); it must never contain the proof or any claim; the proof is not
 echoed back; no page loads anything from another site; every page sends
 `Referrer-Policy: no-referrer`; and visiting a page sets no cookie. If a test fails, either

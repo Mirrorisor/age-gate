@@ -69,6 +69,16 @@ PASSPORT_UPLOAD_LIMIT = 8 * 1024 * 1024
 PASS_SECONDS = float(os.environ.get("PASS_HOURS", "12")) * 3600
 
 
+def json_object():
+    """The request's JSON body if it is an object, else an empty one.
+
+    A body that is valid JSON but not an object (a list, a string, a number) must not
+    reach ``.get`` and end in a server error.
+    """
+    body = request.get_json(silent=True)
+    return body if isinstance(body, dict) else {}
+
+
 def grant_pass():
     """Record that this visitor passed, until PASS_SECONDS from now."""
     session["is_adult"] = True
@@ -252,7 +262,7 @@ def api_finish():
             "detail": "no session",
             "message": "Your check expired. Reload the page and try again.",
         }), 400
-    body = request.get_json(silent=True) or {}
+    body = json_object()
     try:
         ok, detail = verifier.finish(sid, body.get("response"))
     except VerifierError:
@@ -341,7 +351,7 @@ def passport_client():
 def passport_finish():
     if not PASSPORT_URL:
         return jsonify({"ok": False, "message": "Passports are not set up on this site."}), 404
-    body = request.get_json(silent=True) or {}
+    body = json_object()
     domain = urlsplit(SITE_ORIGIN).hostname or "localhost"
     scope = session.get("passport_scope")
     age = time.time() - session.get("passport_scope_at", 0)

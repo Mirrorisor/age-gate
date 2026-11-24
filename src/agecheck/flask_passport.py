@@ -134,7 +134,9 @@ class PassportGate(Gate):
                     "ok": False,
                     "message": "Your check expired. Reload the page and try again.",
                 }), 400
-            body = request.get_json(silent=True) or {}
+            body = request.get_json(silent=True)
+            if not isinstance(body, dict):
+                body = {}
             try:
                 ok = self.checker.check(body.get("proofs"), body.get("result"), self.domain, scope)
             except PassportError:

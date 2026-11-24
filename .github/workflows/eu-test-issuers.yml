@@ -78,3 +78,15 @@ jobs:
             --entrypoint /app/.venv/bin/python "$IMG" /scripts/eu_test_issuers.py /out \
             | tee -a "$GITHUB_STEP_SUMMARY"
           test "$(ls live)" = "eu-av-test-eu-age-verification-issuer-ca-01-edacf968.pem"
+
+      - name: The PowerShell wrapper finds the certs folder and writes there
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path vc/certs -Force | Out-Null
+          chmod -R a+w vc
+          "SECRET_KEY=x`nVERIFIER_CONFIG_DIR=$PWD/vc" | Set-Content .env
+          ./scripts/eu-test-issuers.ps1 -Also 0097a6312df03720
+          if ($LASTEXITCODE) { exit 1 }
+          $files = (Get-ChildItem vc/certs -Name | Sort-Object) -join ","
+          Write-Host $files
+          if ($files -ne "eu-av-test-at-test-issuer-av-sign-0097a631.pem,eu-av-test-eu-age-verification-issuer-ca-01-edacf968.pem") { throw "unexpected: $files" }

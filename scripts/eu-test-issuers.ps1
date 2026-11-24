@@ -3,14 +3,16 @@ Trust the EU's official TEST age-verification issuers (never a real one) in this
 
   powershell -ExecutionPolicy Bypass -File .\scripts\eu-test-issuers.ps1
   powershell -ExecutionPolicy Bypass -File .\scripts\eu-test-issuers.ps1 -DryRun
+  powershell -ExecutionPolicy Bypass -File .\scripts\eu-test-issuers.ps1 -Also 0097a6312df03720
 
 Runs scripts/eu_test_issuers.py inside the verifier's image: it checks the signatures of the
-EU's acceptance (test) and production (real) Age Verification Trusted Lists, keeps the test
-issuers that are not also on the production list, and writes them as eu-av-test-*.pem into
-the certs folder of the verifier config this Compose project uses. Then it restarts the
-verifier, if it is running. No other file in that folder is touched.
+EU's acceptance (test) and production (real) Age Verification Trusted Lists and writes the
+approved test issuers as eu-av-test-*.pem into the certs folder of the verifier config this
+Compose project uses. Only the EU reference test CA is approved by default; -Also approves
+another by its SHA-256 (as the report prints it), but never one on the production list.
+Then it restarts the verifier, if it is running. No other file in that folder is touched.
 #>
-param([switch]$DryRun)
+param([switch]$DryRun, [string[]]$Also = @())
 $ErrorActionPreference = "Stop"
 
 $repo = Split-Path -Parent $PSScriptRoot
@@ -25,9 +27,10 @@ try {
     Write-Host "Certs folder: $certs"
 
     $extra = @()
-    if ($DryRun) { $extra = @("--dry-run") }
+    if ($DryRun) { $extra += "--dry-run" }
+    foreach ($value in $Also) { $extra += @("--also", $value) }
     docker compose run --rm --no-deps `
-        -v "${certs}:/out" -v "${repo}\scripts:/scripts:ro" `
+        -v "${certs}:/out" -v "$(Join-Path $repo 'scripts'):/scripts:ro" `
         --entrypoint /app/.venv/bin/python verifier /scripts/eu_test_issuers.py /out @extra
     if ($LASTEXITCODE -ne 0) { throw "The EU list check refused or failed (exit $LASTEXITCODE); nothing was changed." }
 

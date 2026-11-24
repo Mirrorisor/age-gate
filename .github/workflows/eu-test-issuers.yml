@@ -1,0 +1,92 @@
+name: eu-test-issuers
+
+# scripts/eu_test_issuers.py against the EU's live lists (weekly, so a changed signer or a
+# real issuer appearing on the test list shows up) and against the lists captured on
+# 2026-11-15 in the verifier fork's test data (a fixed expected result).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/eu_test_issuers.py
+      - .github/workflows/eu-test-issuers.yml
+      - docker-compose.yml
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verifier image (as pinned in docker-compose.yml)
+        run: |
+          image=$(grep -oE 'ghcr.io/mirrorisor/zk-age-verifier@sha256:[0-9a-f]+' docker-compose.yml)
+          echo "IMG=$image" >> "$GITHUB_ENV"
+          docker pull -q "$image"
+
+      - name: Captured lists (2026-11-15) give the expected issuers
+        run: |
+          git clone -q https://github.com/Mirrorisor/zk-age-verifier zkv
+          mkdir -m 777 out
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/zkv/tests/data:/lists:ro" \
+            -v "$PWD/out:/out" --entrypoint /app/.venv/bin/python "$IMG" \
+            /scripts/eu_test_issuers.py /out \
+            --acceptance /lists/av-tl-acceptance-2026-11-15.xml \
+            --production /lists/av-tl-production-2026-11-15.xml
+          ls out
+          # By default only the EU reference test CA ("Age Verification Issuer CA 01").
+          test "$(ls out)" = "eu-av-test-eu-age-verification-issuer-ca-01-edacf968.pem"
+
+      - name: --also adds an approved issuer, but never one on the production list
+        run: |
+          mkdir -m 777 out3
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/zkv/tests/data:/lists:ro" \
+            -v "$PWD/out3:/out" --entrypoint /app/.venv/bin/python "$IMG" \
+            /scripts/eu_test_issuers.py /out --also 0097a6312df03720 --also 1dc89e870cddac99 \
+            --acceptance /lists/av-tl-acceptance-2026-11-15.xml \
+            --production /lists/av-tl-production-2026-11-15.xml
+          ls out3
+          ls out3 | grep -q '0097a631'
+          ! ls out3 | grep -q '1dc89e87'
+          test "$(ls out3 | wc -l)" = 2
+
+      - name: A list signed by someone else is refused, and nothing is written
+        run: |
+          mkdir -m 777 out2
+          set +e
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/zkv/tests/data:/lists:ro" \
+            -v "$PWD/out2:/out" --entrypoint /app/.venv/bin/python "$IMG" \
+            /scripts/eu_test_issuers.py /out \
+            --acceptance /lists/av-tl-production-2026-11-15.xml \
+            --production /lists/av-tl-production-2026-11-15.xml
+          code=$?
+          set -e
+          test "$code" = 1
+          test -z "$(ls out2)"
+
+      - name: Live lists
+        run: |
+          mkdir -m 777 live
+          docker run --rm -v "$PWD/scripts:/scripts:ro" -v "$PWD/live:/out" \
+            --entrypoint /app/.venv/bin/python "$IMG" /scripts/eu_test_issuers.py /out \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$(ls live)" = "eu-av-test-eu-age-verification-issuer-ca-01-edacf968.pem"
+
+      - name: The PowerShell wrapper finds the certs folder and writes there
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path vc/certs -Force | Out-Null
+          chmod -R a+w vc
+          "SECRET_KEY=x`nVERIFIER_CONFIG_DIR=$PWD/vc" | Set-Content .env
+          ./scripts/eu-test-issuers.ps1 -Also 0097a6312df03720
+          if ($LASTEXITCODE) { exit 1 }
+          $files = (Get-ChildItem vc/certs -Name | Sort-Object) -join ","
+          Write-Host $files
+          if ($files -ne "eu-av-test-at-test-issuer-av-sign-0097a631.pem,eu-av-test-eu-age-verification-issuer-ca-01-edacf968.pem") { throw "unexpected: $files" }

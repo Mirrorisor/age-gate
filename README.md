@@ -255,6 +255,36 @@ lists every certificate the verifier will trust, with its name, dates, fingerpri
 and whether it can sign other certificates. It warns about expired, soon-to-expire
 and demo-looking certificates. It only reads files.
 
+## Trusting the EU's test issuers from the signed EU list
+
+Instead of copying the EU test CA by hand, take it from the EU's own signed test list:
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\eu-test-issuers.ps1
+```
+
+It downloads the EU's acceptance (test) and production (real) Age Verification Trusted
+Lists, checks each list's signature against signer certificates pinned in
+`scripts/eu_test_issuers.py`, refuses a list past its `NextUpdate`, and writes the approved
+test issuers into your verifier's `certs` folder as `eu-av-test-*.pem` (no other file there is
+touched). Then it restarts the verifier. Add `-DryRun` to only see the report.
+
+Only the EU reference test CA ("Age Verification Issuer CA 01", the issuer of the EU test
+credential) is approved by default. The report lists every other issuer on the test list and
+why it was left out. The test list is not purely test issuers: on 24 Nov 2026 it carried a
+Danish issuer that is also on the production list, an Italian "Age Verification DS - PRD" and
+the IACA of France Identité, France's real identity app. So approve another issuer only when
+you are sure it issues test credentials, with the code the report prints:
+
+```
+powershell -ExecutionPolicy Bypass -File .\scripts\eu-test-issuers.ps1 -Also 0097a6312df03720
+```
+
+An issuer on the production list is never written, approved or not. If the EU changes the
+certificate that signs a list, the script stops and says so; check the new certificate
+before updating the pinned value. The `eu-test-issuers` workflow runs the script against the
+live lists every week.
+
 ## Finding the certificate a wallet needs
 
 When a check ends with "This site does not trust the organisation that issued your

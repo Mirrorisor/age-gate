@@ -133,6 +133,7 @@ jobs:
       - name: The guard refuses the public test CA and demo mode, and passes otherwise
         shell: pwsh
         run: |
+          $env:TEMP = $env:RUNNER_TEMP  # the script is written for Windows, which sets TEMP
           git clone -q --depth 1 https://github.com/Mirrorisor/zk-age-verifier zkv
           New-Item -ItemType Directory -Path vc/certs -Force | Out-Null
           "SECRET_KEY=x`nVERIFIER_CONFIG_DIR=$PWD/vc" | Set-Content .env

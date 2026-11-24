@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Verifier fork 4563c7e (upstream #88 merged in: an `etsi_xml` trust source now loads only age-attestation services). The example config uses PEM certificates, so nothing changes for it.
 - Docs brought up to date: the README now says the ZKP-friendly licence and Photo ID work and how
   to accept several kinds; finding a refused certificate uses the verifier's `untrusted_issuer`
   log line and `--check-cert` instead of patching the container; the trust-list and

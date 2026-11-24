@@ -1,28 +1,32 @@
-"""Trust the EU's official TEST age-verification issuers, and never a real one.
+"""Trust approved TEST issuers from the EU's signed age-verification test list.
 
 The EU publishes two signed Age Verification Trusted Lists: the acceptance list, with test
-issuers from several Member States, and the production list, with real issuers. This script:
+issuers from several Member States, and the production list, with real issuers. Not
+everything on the acceptance list is plainly a test issuer: on 2026-11-15 it carried a
+Danish issuer that is also on the production list, an Italian "Age Verification DS - PRD"
+and the IACA of France Identité, France's real identity app. So nothing is trusted unless
+it is approved by its SHA-256 here or with --also. This script:
 
 1. fetches both and checks each list's XML signature against signer certificates pinned
    below (the acceptance list's "TEST European Commission" certificate; for the production
    list, the six EU list-signing certificates named in it as of 2026-11-15);
 2. refuses either list if it is past its NextUpdate;
-3. takes the active age-attestation services of the acceptance list, drops every
-   certificate that is also on the production list (a real issuer must never be trusted
-   here: the acceptance list of 2026-11-15 carries one Danish production issuer), and
-   drops certificates that are not valid today;
-4. replaces the files named eu-av-test-*.pem in OUT_DIR with the remaining certificates and
-   prints what it kept and what it left out. No other file in OUT_DIR is touched.
+3. takes the active age-attestation services of the acceptance list and leaves out every
+   certificate that is also on the production list, is not valid today, or is not approved;
+4. replaces the files named eu-av-test-*.pem in OUT_DIR with the approved certificates and
+   prints every certificate on the list with what happened to it, so you can decide whether
+   to approve another (--also SHA256, the first 16 hex characters are enough). No other file
+   in OUT_DIR is touched.
 
 It runs inside the verifier fork's image, which has the same list code the verifier uses
 (scripts/eu-test-issuers.ps1 does this). Restart the verifier afterwards.
 
 Usage:
-    python eu_test_issuers.py OUT_DIR [--acceptance LOCATION] [--production LOCATION]
-                                      [--dry-run]
+    python eu_test_issuers.py OUT_DIR [--also SHA256 ...] [--acceptance LOCATION]
+                                      [--production LOCATION] [--dry-run]
 
 Exit status: 0 written (or would be, with --dry-run), 1 a list was refused (signature,
-signer, NextUpdate), 2 bad usage or a list could not be read.
+signer, NextUpdate) or no approved issuer is on it, 2 bad usage or a list could not be read.
 """
 
 from __future__ import annotations
@@ -64,6 +68,10 @@ PRODUCTION_SIGNERS = {
     "236103f03a8031ae8f47f9059bf8de38564cdbfebedde4a597d50f8980aa653b",
 }
 PREFIX = "eu-av-test-"
+# Approved by default: the EU's age-verification reference implementation test CA ("Age
+# Verification Issuer CA 01", valid to 2034-09-27), the issuer of the EU test credential
+# this project tests with.
+APPROVED = {"edacf96827f6dfc280411792a00ab6d002becda099aa7f1e1ada019ba86a08c5"}
 
 
 class Refused(Exception):
@@ -133,6 +141,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--acceptance", default=ACCEPTANCE)
     parser.add_argument("--production", default=PRODUCTION)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--also",
+        action="append",
+        default=[],
+        metavar="SHA256",
+        help="also approve this certificate (its SHA-256, or at least its first 16 hex digits)",
+    )
     args = parser.parse_args(argv)
     if not args.out_dir.is_dir():
         print(f"{args.out_dir} is not a folder", file=sys.stderr)
@@ -148,6 +163,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Cannot read a list: {exc}", file=sys.stderr)
         return 2
 
+    also = [value.lower() for value in args.also]
+    if any(not re.fullmatch(r"[0-9a-f]{16,64}", value) for value in also):
+        print("--also takes a SHA-256 in hex, at least 16 characters", file=sys.stderr)
+        return 2
+
+    def approved(fingerprint: str) -> bool:
+        return fingerprint in APPROVED or any(fingerprint.startswith(value) for value in also)
+
     real = {sha256(cert) for cert in _service_anchors(production)}
     now = datetime.now(timezone.utc)
     keep: list[x509.Certificate] = []
@@ -162,12 +185,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  left out, also on the production list: {label}")
         elif not cert.not_valid_before_utc <= now <= cert.not_valid_after_utc:
             print(f"  left out, not valid today (to {cert.not_valid_after_utc.date()}): {label}")
+        elif not approved(fingerprint):
+            print(f"  left out, not approved (--also {fingerprint[:16]}): {label}")
         else:
             keep.append(cert)
-            print(f"  kept, valid to {cert.not_valid_after_utc.date()}: {label}")
+            print(f"  TRUSTED, valid to {cert.not_valid_after_utc.date()}: {label}")
 
     if not keep:
-        print("REFUSED: no test issuer is left; nothing written", file=sys.stderr)
+        print("REFUSED: no approved test issuer is on the list; nothing written", file=sys.stderr)
         return 1
     if args.dry_run:
         print(f"Dry run: would write {len(keep)} certificates to {args.out_dir}")

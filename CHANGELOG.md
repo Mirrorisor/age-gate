@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `scripts/go-public.ps1` refuses to put the site online while demo mode is on or the
+  verifier trusts its own public test CA (`test-anchor.pem`, found by SHA-256 in any file in
+  the certs folder): the test credential it signs, with its private key, is public in the
+  verifier repository, so anyone could pass the check with `wallet_demo.py`. A new
+  `go-public-guard` job tests the refusal and the clean case. The README's fake-wallet steps
+  say to move the test CA out again afterwards. The tests workflow no longer runs for the
+  deleted `refresh-images` branch.
 - A pass now ends: it lasts `PASS_HOURS` (default 12; `pass_hours` on `AgeGate` and
   `PassportGate`), and the cookie records when (`adult_until`, or `<session_key>_until` in the
   package). Before, a copied "passed" cookie let anyone in for ever. Cookies from before this

@@ -13,6 +13,9 @@ Starting it:
   4. recreates the site container and restarts the verifier.
 -Stop undoes all four and goes back to http://localhost:5000.
 
+It refuses to start while demo mode is on or the verifier trusts its own public test CA
+(test-anchor.pem), since anyone could then pass with the published test credential.
+
 Cloudflare can see visitors' IP addresses and which pages they open. The site keeps the
 visitor address only in memory, for one minute, for rate limiting.
 #>
@@ -105,6 +108,42 @@ if ($Stop) {
     exit 0
 }
 
+# Refuse to go public while anyone could pass with published test material: the verifier's
+# own test CA (its test credential and that credential's private key are public in the
+# verifier repository, so anyone could run wallet_demo.py against the public address), or
+# demo mode's fake wallet.
+$publicTestCa = "e08bee777e18452ff574f0551d733dd8fc833dc6b1814e1d0a04cd8a822f9edf"
+
+function Get-PemSha256($file) {
+    $text = [IO.File]::ReadAllText($file)
+    $hashes = @()
+    foreach ($m in [regex]::Matches($text, '-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----')) {
+        $der = [Convert]::FromBase64String(($m.Groups[1].Value -replace '\s', ''))
+        $sha = [Security.Cryptography.SHA256]::Create()
+        $hashes += (($sha.ComputeHash($der) | ForEach-Object { $_.ToString("x2") }) -join "")
+    }
+    return $hashes
+}
+
+function Assert-NoPublicTestMaterial {
+    if ((Read-EnvValue "DEMO_FAKE_WALLET") -eq "1" -or $env:DEMO_FAKE_WALLET -eq "1") {
+        throw "Demo mode (DEMO_FAKE_WALLET=1) is on. Turn it off before going public."
+    }
+    $dir = Read-EnvValue "VERIFIER_CONFIG_DIR"
+    if (-not $dir) { $dir = Join-Path $repo "verifier-config" }
+    $certs = Join-Path $dir "certs"
+    if (-not (Test-Path $certs)) { return }
+    foreach ($file in Get-ChildItem -Path $certs -File) {
+        try { $found = Get-PemSha256 $file.FullName } catch { continue }
+        if ($found -contains $publicTestCa) {
+            throw ("$($file.FullName) is the verifier's public test CA: anyone could pass the " +
+                   "age check with the test credential published next to it. Move it out of " +
+                   "certs (for example to verifier-config\not-trusted), then try again.")
+        }
+    }
+}
+
+Assert-NoPublicTestMaterial
 $exe = Find-Cloudflared
 Stop-Tunnel
 Remove-Item $logFile, "$logFile.out" -ErrorAction SilentlyContinue

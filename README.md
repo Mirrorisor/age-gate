@@ -120,7 +120,10 @@ is Apache-2.0 licensed and not copied into this repository. To use it:
 
 1. Download <https://github.com/Mirrorisor/zk-age-verifier> as a ZIP and extract it.
 2. Copy `tests\integration\credentials\test-anchor.pem` into `verifier-config\certs\`
-   (and remove any other certificates there), then restart the verifier.
+   (and remove any other certificates there), then restart the verifier. **Local only:** that
+   test CA's credential and its private key are public, so while it is trusted anyone can pass
+   the check. Move it out again when you finish; `scripts/go-public.ps1` refuses to start while
+   it is in `certs` or demo mode is on.
 3. Copy the extracted `tests` folder and the script into the running container, then run it:
 
 ```

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Verifier fork 51243bc: upstream #92 merged in, so a trust anchor outside its own validity period no longer vouches for the certificates it issued (`--check-cert` reports the same).
 - The finish steps (`/api/finish`, `/api/passport/finish`, and the `AgeGate` and `PassportGate` `/finish` routes) answer a body that is valid JSON but not an object (a list, a string, a number) like an empty one, instead of failing with a server error. Removes `tmp/age_gate_placeholder.py`, added by mistake.
 - `scripts/go-public.ps1` refuses to put the site online while demo mode is on or the
   verifier trusts its own public test CA (`test-anchor.pem`, found by SHA-256 in any file in
